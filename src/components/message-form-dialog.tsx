@@ -132,16 +132,18 @@ export function MessageFormDialog({
             </div>
           )}
 
-          <div className="grid gap-2">
-            <Label htmlFor="webhook">Webhook URL</Label>
-            <Input
-              id="webhook"
-              value={webhookUrl}
-              onChange={(e) => onWebhookUrlChange(e.target.value)}
-              placeholder="https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key=..."
-              autoComplete="off"
-            />
-          </div>
+          {!selectedGroupId && (
+            <div className="grid gap-2">
+              <Label htmlFor="webhook">Webhook URL</Label>
+              <Input
+                id="webhook"
+                value={webhookUrl}
+                onChange={(e) => onWebhookUrlChange(e.target.value)}
+                placeholder="https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key=..."
+                autoComplete="off"
+              />
+            </div>
+          )}
 
           <div className="grid gap-2">
             <Label htmlFor="msgtype">消息类型</Label>
