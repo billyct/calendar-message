@@ -5,7 +5,6 @@ mod webhook;
 
 use std::path::PathBuf;
 
-use chrono::Utc;
 use rusqlite::Connection;
 use serde::{Deserialize, Serialize};
 use tauri::{Emitter, Manager, State};
@@ -155,17 +154,16 @@ fn send_saved_now(app: tauri::AppHandle, state: State<AppDb>, id: String) -> Res
         .map_err(|e| e.to_string())?
         .ok_or_else(|| "消息不存在".to_string())?;
     let client = blocking_client()?;
-    let now = Utc::now().timestamp_millis();
     let outcome = webhook::send_wechat_work(&client, &msg.webhook_url, &msg.msgtype, &msg.content);
     let result = match outcome {
         Ok(()) => {
-            db::touch_send_attempt(&conn, &id, now, None).map_err(|e| e.to_string())?;
+            db::finalize_sent(&conn, &id).map_err(|e| e.to_string())?;
             notify::send_result(&app, &msg, Ok(()));
             Ok(())
         }
         Err(e) => {
             let err = e.to_string();
-            db::touch_send_attempt(&conn, &id, now, Some(&err)).map_err(|e| e.to_string())?;
+            db::finalize_failed(&conn, &id, &err).map_err(|e| e.to_string())?;
             notify::send_result(&app, &msg, Err(&err));
             Err(err)
         }
