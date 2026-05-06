@@ -1,4 +1,5 @@
 mod db;
+mod notify;
 mod scheduler;
 mod webhook;
 
@@ -7,7 +8,7 @@ use std::path::PathBuf;
 use chrono::Utc;
 use rusqlite::Connection;
 use serde::{Deserialize, Serialize};
-use tauri::{Manager, State};
+use tauri::{Emitter, Manager, State};
 
 #[derive(Clone)]
 struct AppDb {
@@ -148,30 +149,36 @@ fn send_preview(
 }
 
 #[tauri::command]
-fn send_saved_now(state: State<AppDb>, id: String) -> Result<(), String> {
+fn send_saved_now(app: tauri::AppHandle, state: State<AppDb>, id: String) -> Result<(), String> {
     let conn = Connection::open(&state.path).map_err(|e| e.to_string())?;
     let msg = db::get_message(&conn, &id)
         .map_err(|e| e.to_string())?
         .ok_or_else(|| "消息不存在".to_string())?;
     let client = blocking_client()?;
     let now = Utc::now().timestamp_millis();
-    match webhook::send_wechat_work(&client, &msg.webhook_url, &msg.msgtype, &msg.content) {
+    let outcome = webhook::send_wechat_work(&client, &msg.webhook_url, &msg.msgtype, &msg.content);
+    let result = match outcome {
         Ok(()) => {
             db::touch_send_attempt(&conn, &id, now, None).map_err(|e| e.to_string())?;
+            notify::send_result(&app, &msg, Ok(()));
             Ok(())
         }
         Err(e) => {
             let err = e.to_string();
             db::touch_send_attempt(&conn, &id, now, Some(&err)).map_err(|e| e.to_string())?;
+            notify::send_result(&app, &msg, Err(&err));
             Err(err)
         }
-    }
+    };
+    let _ = app.emit(scheduler::MESSAGES_CHANGED_EVENT, ());
+    result
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
+        .plugin(tauri_plugin_notification::init())
         .setup(|app| {
             let dir = app
                 .path()
@@ -186,7 +193,7 @@ pub fn run() {
             }
             let db_path_clone = db_path.clone();
             app.manage(AppDb { path: db_path });
-            scheduler::start_scheduler(db_path_clone);
+            scheduler::start_scheduler(app.handle().clone(), db_path_clone);
 
             Ok(())
         })

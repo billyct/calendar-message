@@ -1,11 +1,14 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { View } from "react-big-calendar";
 import { endOfMonth, startOfMonth } from "date-fns";
 import { invoke } from "@tauri-apps/api/core";
+import { listen, type UnlistenFn } from "@tauri-apps/api/event";
 import { toast } from "sonner";
 
 import { statusLabel } from "@/lib/message-status";
 import type { CalendarEvent, ScheduledMessage } from "@/types/scheduled-message";
+
+const MESSAGES_CHANGED_EVENT = "messages-changed";
 
 export function useScheduledMessages() {
   const [messages, setMessages] = useState<ScheduledMessage[]>([]);
@@ -44,6 +47,33 @@ export function useScheduledMessages() {
   useEffect(() => {
     void loadRange(currentDate);
   }, [currentDate, loadRange]);
+
+  const currentDateRef = useRef(currentDate);
+  const loadRangeRef = useRef(loadRange);
+  useEffect(() => {
+    currentDateRef.current = currentDate;
+  }, [currentDate]);
+  useEffect(() => {
+    loadRangeRef.current = loadRange;
+  }, [loadRange]);
+
+  useEffect(() => {
+    let unlisten: UnlistenFn | undefined;
+    let cancelled = false;
+    void listen(MESSAGES_CHANGED_EVENT, () => {
+      void loadRangeRef.current(currentDateRef.current);
+    }).then((fn) => {
+      if (cancelled) {
+        fn();
+      } else {
+        unlisten = fn;
+      }
+    });
+    return () => {
+      cancelled = true;
+      unlisten?.();
+    };
+  }, []);
 
   const events: CalendarEvent[] = useMemo(() => {
     return messages.map((m) => {
