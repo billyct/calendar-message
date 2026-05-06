@@ -95,7 +95,24 @@ export function MessageFormDialog({
                 onValueChange={handleGroupSelect}
               >
                 <SelectTrigger id="group" className="w-full min-w-0">
-                  <SelectValue placeholder="手动填写 Webhook URL" />
+                  <SelectValue>
+                    {selectedGroupId
+                      ? (() => {
+                          const g = groups.find((g) => g.id === selectedGroupId);
+                          return g ? (
+                            <span className="flex items-center gap-2">
+                              <span
+                                className="inline-block size-3 shrink-0 rounded-full"
+                                style={{ backgroundColor: g.color }}
+                              />
+                              {g.name}
+                            </span>
+                          ) : (
+                            "手动填写"
+                          );
+                        })()
+                      : "手动填写"}
+                  </SelectValue>
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="__none__">手动填写</SelectItem>
@@ -103,7 +120,7 @@ export function MessageFormDialog({
                     <SelectItem key={g.id} value={g.id}>
                       <span className="flex items-center gap-2">
                         <span
-                          className="inline-block size-3 rounded-full"
+                          className="inline-block size-3 shrink-0 rounded-full"
                           style={{ backgroundColor: g.color }}
                         />
                         {g.name}
