@@ -34,6 +34,7 @@ export function useScheduledMessages() {
       });
       setMessages(rows);
     } catch (e) {
+      setMessages([]);
       toast.error(String(e));
     } finally {
       setLoading(false);
@@ -66,6 +67,7 @@ export function useScheduledMessages() {
     setMsgtype("text");
     setContent("");
     setScheduledAtDate(new Date());
+    setScheduleDateOpen(false);
     setModalOpen(true);
   }, []);
 

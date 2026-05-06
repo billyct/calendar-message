@@ -1,10 +1,11 @@
-import { describe, expect, it, vi, beforeEach } from "vitest";
+import { describe, expect, it, vi, afterEach, beforeEach } from "vitest";
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { invoke } from "@tauri-apps/api/core";
 import { toast } from "sonner";
 
 import { useScheduledMessages } from "@/hooks/use-scheduled-messages";
 import { createScheduledMessage } from "@/test/factories";
+import { createInvokeRouter } from "@/test/mock-tauri-invoke";
 
 vi.mock("@tauri-apps/api/core", () => ({
   invoke: vi.fn(),
@@ -20,14 +21,22 @@ vi.mock("sonner", () => ({
 const mockedInvoke = vi.mocked(invoke);
 
 describe("useScheduledMessages", () => {
+  let invokeRouter: ReturnType<typeof createInvokeRouter>;
+
   beforeEach(() => {
     vi.clearAllMocks();
-    mockedInvoke.mockResolvedValue([]);
+    mockedInvoke.mockReset();
+    invokeRouter = createInvokeRouter();
+    mockedInvoke.mockImplementation(invokeRouter.invokeImpl);
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
   });
 
   it("loads messages for current month on mount", async () => {
     const row = createScheduledMessage({ id: "a" });
-    mockedInvoke.mockResolvedValueOnce([row]);
+    invokeRouter.state.listMessages = async () => [row];
 
     const { result } = renderHook(() => useScheduledMessages());
 
@@ -49,16 +58,39 @@ describe("useScheduledMessages", () => {
     expect(result.current.events[0]?.resource.id).toBe("a");
   });
 
-  it("openCreate resets draft fields and opens modal", async () => {
+  it("clears stale events when list_messages fails", async () => {
+    const stale = createScheduledMessage({ id: "stale" });
+    let n = 0;
+    invokeRouter.state.listMessages = async () => {
+      n += 1;
+      if (n === 1) return [stale];
+      throw new Error("network");
+    };
+
+    const { result } = renderHook(() => useScheduledMessages());
+
+    await waitFor(() => expect(result.current.events).toHaveLength(1));
+
+    await act(async () => {
+      result.current.onNavigate(new Date(2030, 3, 15));
+    });
+
+    await waitFor(() => expect(toast.error).toHaveBeenCalled());
+    expect(result.current.events).toHaveLength(0);
+  });
+
+  it("openCreate resets draft fields, closes date popover state, and opens modal", async () => {
     const { result } = renderHook(() => useScheduledMessages());
 
     await waitFor(() => expect(result.current.loading).toBe(false));
 
     act(() => {
+      result.current.setScheduleDateOpen(true);
       result.current.openCreate();
     });
 
     expect(result.current.modalOpen).toBe(true);
+    expect(result.current.scheduleDateOpen).toBe(false);
     expect(result.current.editingId).toBeNull();
     expect(result.current.webhookUrl).toBe("");
     expect(result.current.msgtype).toBe("text");
@@ -73,7 +105,7 @@ describe("useScheduledMessages", () => {
       content: "body",
       scheduledAt: 1_700_000_000_000,
     });
-    mockedInvoke.mockResolvedValueOnce([msg]);
+    invokeRouter.state.listMessages = async () => [msg];
 
     const { result } = renderHook(() => useScheduledMessages());
 
@@ -91,8 +123,44 @@ describe("useScheduledMessages", () => {
     expect(result.current.scheduledAtDate.getTime()).toBe(1_700_000_000_000);
   });
 
+  it("month view slot keeps slot date but uses wall-clock hours", async () => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date(2024, 5, 15, 14, 35, 0));
+
+    const { result } = renderHook(() => useScheduledMessages());
+
+    await waitFor(() => expect(result.current.loading).toBe(false));
+
+    act(() => {
+      result.current.onSelectSlot(new Date(2024, 5, 10, 9, 0, 0));
+    });
+
+    expect(result.current.scheduledAtDate.getFullYear()).toBe(2024);
+    expect(result.current.scheduledAtDate.getMonth()).toBe(5);
+    expect(result.current.scheduledAtDate.getDate()).toBe(10);
+    expect(result.current.scheduledAtDate.getHours()).toBe(14);
+    expect(result.current.scheduledAtDate.getMinutes()).toBe(35);
+  });
+
+  it("week/day slot uses the slot start instant as scheduled time", async () => {
+    const { result } = renderHook(() => useScheduledMessages());
+
+    await waitFor(() => expect(result.current.loading).toBe(false));
+
+    act(() => {
+      result.current.onViewChange("week");
+    });
+
+    const slot = new Date(2024, 5, 10, 9, 15, 0);
+
+    act(() => {
+      result.current.onSelectSlot(slot);
+    });
+
+    expect(result.current.scheduledAtDate.getTime()).toBe(slot.getTime());
+  });
+
   it("saveMessage invokes create_message when not editing", async () => {
-    mockedInvoke.mockResolvedValue([]);
     const { result } = renderHook(() => useScheduledMessages());
     await waitFor(() => expect(mockedInvoke).toHaveBeenCalled());
 
@@ -101,9 +169,6 @@ describe("useScheduledMessages", () => {
       result.current.setWebhookUrl("https://hook");
       result.current.setContent("hi");
     });
-
-    mockedInvoke.mockResolvedValueOnce(undefined);
-    mockedInvoke.mockResolvedValueOnce([]);
 
     await act(async () => {
       await result.current.saveMessage();
@@ -123,9 +188,29 @@ describe("useScheduledMessages", () => {
     expect(result.current.modalOpen).toBe(false);
   });
 
+  it("saveMessage keeps modal open and toasts on create failure", async () => {
+    invokeRouter.state.throwOn.create_message = new Error("bad-create");
+
+    const { result } = renderHook(() => useScheduledMessages());
+    await waitFor(() => expect(result.current.loading).toBe(false));
+
+    act(() => {
+      result.current.openCreate();
+      result.current.setWebhookUrl("https://hook");
+      result.current.setContent("hi");
+    });
+
+    await act(async () => {
+      await result.current.saveMessage();
+    });
+
+    expect(toast.error).toHaveBeenCalledWith(expect.stringContaining("bad-create"));
+    expect(result.current.modalOpen).toBe(true);
+  });
+
   it("saveMessage invokes update_message when editingId is set", async () => {
     const msg = createScheduledMessage({ id: "u1" });
-    mockedInvoke.mockResolvedValueOnce([msg]);
+    invokeRouter.state.listMessages = async () => [msg];
 
     const { result } = renderHook(() => useScheduledMessages());
     await waitFor(() => expect(result.current.events).toHaveLength(1));
@@ -134,9 +219,6 @@ describe("useScheduledMessages", () => {
       result.current.onSelectEvent(result.current.events[0]!);
       result.current.setContent("updated");
     });
-
-    mockedInvoke.mockResolvedValueOnce(undefined);
-    mockedInvoke.mockResolvedValueOnce([]);
 
     await act(async () => {
       await result.current.saveMessage();
@@ -154,9 +236,10 @@ describe("useScheduledMessages", () => {
     expect(toast.success).toHaveBeenCalledWith("已保存修改");
   });
 
-  it("confirmDelete invokes delete_message", async () => {
-    const msg = createScheduledMessage({ id: "d1" });
-    mockedInvoke.mockResolvedValueOnce([msg]);
+  it("saveMessage keeps modal open on update failure", async () => {
+    const msg = createScheduledMessage({ id: "u1" });
+    invokeRouter.state.listMessages = async () => [msg];
+    invokeRouter.state.throwOn.update_message = new Error("bad-update");
 
     const { result } = renderHook(() => useScheduledMessages());
     await waitFor(() => expect(result.current.events).toHaveLength(1));
@@ -165,8 +248,24 @@ describe("useScheduledMessages", () => {
       result.current.onSelectEvent(result.current.events[0]!);
     });
 
-    mockedInvoke.mockResolvedValueOnce(undefined);
-    mockedInvoke.mockResolvedValueOnce([]);
+    await act(async () => {
+      await result.current.saveMessage();
+    });
+
+    expect(toast.error).toHaveBeenCalledWith(expect.stringContaining("bad-update"));
+    expect(result.current.modalOpen).toBe(true);
+  });
+
+  it("confirmDelete invokes delete_message", async () => {
+    const msg = createScheduledMessage({ id: "d1" });
+    invokeRouter.state.listMessages = async () => [msg];
+
+    const { result } = renderHook(() => useScheduledMessages());
+    await waitFor(() => expect(result.current.events).toHaveLength(1));
+
+    act(() => {
+      result.current.onSelectEvent(result.current.events[0]!);
+    });
 
     await act(async () => {
       await result.current.confirmDelete();
@@ -178,11 +277,104 @@ describe("useScheduledMessages", () => {
     expect(result.current.modalOpen).toBe(false);
   });
 
+  it("confirmDelete surfaces errors without closing dialogs", async () => {
+    const msg = createScheduledMessage({ id: "d1" });
+    invokeRouter.state.listMessages = async () => [msg];
+    invokeRouter.state.throwOn.delete_message = new Error("bad-delete");
+
+    const { result } = renderHook(() => useScheduledMessages());
+    await waitFor(() => expect(result.current.events).toHaveLength(1));
+
+    act(() => {
+      result.current.onSelectEvent(result.current.events[0]!);
+      result.current.setDeleteOpen(true);
+    });
+
+    await act(async () => {
+      await result.current.confirmDelete();
+    });
+
+    expect(toast.error).toHaveBeenCalledWith(expect.stringContaining("bad-delete"));
+    expect(result.current.modalOpen).toBe(true);
+    expect(result.current.deleteOpen).toBe(true);
+  });
+
+  it("sendTestFromForm invokes send_preview and toasts success", async () => {
+    const { result } = renderHook(() => useScheduledMessages());
+    await waitFor(() => expect(result.current.loading).toBe(false));
+
+    act(() => {
+      result.current.openCreate();
+      result.current.setWebhookUrl("https://w");
+      result.current.setContent("x");
+    });
+
+    await act(async () => {
+      await result.current.sendTestFromForm();
+    });
+
+    expect(mockedInvoke).toHaveBeenCalledWith(
+      "send_preview",
+      expect.objectContaining({
+        webhookUrl: "https://w",
+        msgtype: "text",
+        content: "x",
+      }),
+    );
+    expect(toast.success).toHaveBeenCalledWith("测试发送成功");
+  });
+
+  it("sendTestFromForm toasts error when preview fails", async () => {
+    invokeRouter.state.throwOn.send_preview = new Error("preview-down");
+
+    const { result } = renderHook(() => useScheduledMessages());
+    await waitFor(() => expect(result.current.loading).toBe(false));
+
+    act(() => {
+      result.current.openCreate();
+      result.current.setWebhookUrl("https://w");
+    });
+
+    await act(async () => {
+      await result.current.sendTestFromForm();
+    });
+
+    expect(toast.error).toHaveBeenCalledWith(expect.stringContaining("preview-down"));
+  });
+
+  it("sendSavedNow invokes send_saved_now and reloads", async () => {
+    const msg = createScheduledMessage({ id: "s1" });
+    invokeRouter.state.listMessages = async () => [msg];
+
+    const { result } = renderHook(() => useScheduledMessages());
+    await waitFor(() => expect(result.current.events).toHaveLength(1));
+
+    await act(async () => {
+      await result.current.sendSavedNow("s1");
+    });
+
+    expect(mockedInvoke).toHaveBeenCalledWith("send_saved_now", { id: "s1" });
+    expect(toast.success).toHaveBeenCalledWith("立即发送成功");
+  });
+
+  it("sendSavedNow toasts error when invoke fails", async () => {
+    invokeRouter.state.throwOn.send_saved_now = new Error("send-fail");
+
+    const { result } = renderHook(() => useScheduledMessages());
+    await waitFor(() => expect(result.current.loading).toBe(false));
+
+    await act(async () => {
+      await result.current.sendSavedNow("any");
+    });
+
+    expect(toast.error).toHaveBeenCalledWith(expect.stringContaining("send-fail"));
+  });
+
   it("truncates long content in event title preview", async () => {
     const long = "a".repeat(50);
-    mockedInvoke.mockResolvedValueOnce([
+    invokeRouter.state.listMessages = async () => [
       createScheduledMessage({ content: long }),
-    ]);
+    ];
 
     const { result } = renderHook(() => useScheduledMessages());
 
