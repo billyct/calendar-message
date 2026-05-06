@@ -6,11 +6,13 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "tsc && vite build",
+    "icons": "tauri icon assets/icon-source/calendar-message.png && cp src-tauri/icons/icon.ico public/favicon.ico",
+    "build": "bun run icons && tsc && vite build",
     "test": "vitest run",
     "test:watch": "vitest",
     "preview": "vite preview",
-    "tauri": "tauri"
+    "tauri": "tauri",
+    "icons:generate": "bun run icons"
   },
   "dependencies": {
     "@base-ui/react": "^1.4.1",
