@@ -202,6 +202,27 @@ export default function App() {
     setModalOpen(true);
   };
 
+  /** 月视图：空白格只有日期，时间用当前时分；周/日视图：使用格子对应的日期时间 */
+  const openCreateFromSlot = useCallback(
+    (slotStart: Date) => {
+      setEditingId(null);
+      setWebhookUrl("");
+      setMsgtype("text");
+      setContent("");
+      let at: Date;
+      if (currentView === "month") {
+        at = new Date(slotStart);
+        const now = new Date();
+        at.setHours(now.getHours(), now.getMinutes(), 0, 0);
+      } else {
+        at = new Date(slotStart);
+      }
+      setScheduledAtDate(at);
+      setModalOpen(true);
+    },
+    [currentView]
+  );
+
   const openEdit = (m: ScheduledMessage) => {
     setEditingId(m.id);
     setWebhookUrl(m.webhookUrl);
@@ -318,6 +339,8 @@ export default function App() {
           startAccessor="start"
           endAccessor="end"
           style={{ height: "calc(100vh - 140px)", minHeight: 520 }}
+          selectable
+          onSelectSlot={(slot) => openCreateFromSlot(slot.start)}
           onSelectEvent={(ev: CalendarEvent) => openEdit(ev.resource)}
           messages={{
             today: "今天",
