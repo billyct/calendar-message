@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
-  Calendar,
+  Calendar as BigCalendar,
   dateFnsLocalizer,
   type View,
 } from "react-big-calendar";
@@ -16,9 +16,11 @@ import { zhCN } from "date-fns/locale";
 import { invoke } from "@tauri-apps/api/core";
 import { useTheme } from "next-themes";
 import { toast } from "sonner";
-import { Palette } from "lucide-react";
+import { ChevronDownIcon, Palette } from "lucide-react";
+import { zhCN as dayPickerZhCN } from "react-day-picker/locale";
 
 import { Button } from "@/components/ui/button";
+import { Calendar } from "@/components/ui/calendar";
 import {
   Dialog,
   DialogContent,
@@ -55,6 +57,11 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 
 import "react-big-calendar/lib/css/react-big-calendar.css";
 
@@ -88,17 +95,6 @@ const localizer = dateFnsLocalizer({
   getDay,
   locales,
 });
-
-function toDatetimeLocalValue(ms: number): string {
-  const d = new Date(ms);
-  const pad = (n: number) => String(n).padStart(2, "0");
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
-}
-
-function fromDatetimeLocalValue(value: string): number {
-  const d = new Date(value);
-  return d.getTime();
-}
 
 function statusLabel(status: string): string {
   switch (status) {
@@ -155,7 +151,8 @@ export default function App() {
   const [webhookUrl, setWebhookUrl] = useState("");
   const [msgtype, setMsgtype] = useState<"text" | "markdown">("text");
   const [content, setContent] = useState("");
-  const [scheduledLocal, setScheduledLocal] = useState(toDatetimeLocalValue(Date.now()));
+  const [scheduledAtDate, setScheduledAtDate] = useState(() => new Date());
+  const [scheduleDateOpen, setScheduleDateOpen] = useState(false);
 
   const loadRange = useCallback(async (anchor: Date) => {
     setLoading(true);
@@ -201,7 +198,7 @@ export default function App() {
     setWebhookUrl("");
     setMsgtype("text");
     setContent("");
-    setScheduledLocal(toDatetimeLocalValue(Date.now()));
+    setScheduledAtDate(new Date());
     setModalOpen(true);
   };
 
@@ -210,14 +207,14 @@ export default function App() {
     setWebhookUrl(m.webhookUrl);
     setMsgtype(m.msgtype === "markdown" ? "markdown" : "text");
     setContent(m.content);
-    setScheduledLocal(toDatetimeLocalValue(m.scheduledAt));
+    setScheduledAtDate(new Date(m.scheduledAt));
     setModalOpen(true);
   };
 
   const closeModal = () => setModalOpen(false);
 
   const saveMessage = async () => {
-    const scheduled_at = fromDatetimeLocalValue(scheduledLocal);
+    const scheduled_at = scheduledAtDate.getTime();
     try {
       if (editingId) {
         await invoke("update_message", {
@@ -310,7 +307,7 @@ export default function App() {
             加载中…
           </div>
         ) : null}
-        <Calendar
+        <BigCalendar
           culture="zh-CN"
           localizer={localizer}
           events={events}
@@ -389,13 +386,80 @@ export default function App() {
             </div>
 
             <div className="grid gap-2">
-              <Label htmlFor="scheduled">计划发送时间（本地时区）</Label>
-              <Input
-                id="scheduled"
-                type="datetime-local"
-                value={scheduledLocal}
-                onChange={(e) => setScheduledLocal(e.target.value)}
-              />
+              <span className="text-sm font-medium leading-none">
+                计划发送时间（本地时区）
+              </span>
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
+                <div className="grid flex-1 gap-2">
+                  <Label htmlFor="scheduled-date" className="text-muted-foreground">
+                    日期
+                  </Label>
+                  <Popover open={scheduleDateOpen} onOpenChange={setScheduleDateOpen}>
+                    <PopoverTrigger
+                      render={
+                        <Button
+                          variant="outline"
+                          id="scheduled-date"
+                          type="button"
+                          className="w-full justify-between font-normal sm:max-w-[min(100%,280px)]"
+                        />
+                      }
+                    >
+                      <span className="truncate">
+                        {format(scheduledAtDate, "PPP", { locale: zhCN })}
+                      </span>
+                      <ChevronDownIcon className="size-4 shrink-0 opacity-60" />
+                    </PopoverTrigger>
+                    <PopoverContent
+                      className="z-[100] w-auto overflow-hidden p-0"
+                      align="start"
+                    >
+                      <Calendar
+                        mode="single"
+                        locale={dayPickerZhCN}
+                        captionLayout="dropdown"
+                        selected={scheduledAtDate}
+                        defaultMonth={scheduledAtDate}
+                        onSelect={(d: Date | undefined) => {
+                          if (!d) return;
+                          setScheduledAtDate((prev) => {
+                            const next = new Date(prev);
+                            next.setFullYear(
+                              d.getFullYear(),
+                              d.getMonth(),
+                              d.getDate()
+                            );
+                            return next;
+                          });
+                          setScheduleDateOpen(false);
+                        }}
+                      />
+                    </PopoverContent>
+                  </Popover>
+                </div>
+                <div className="grid gap-2 sm:w-36">
+                  <Label htmlFor="scheduled-time" className="text-muted-foreground">
+                    时间
+                  </Label>
+                  <Input
+                    type="time"
+                    id="scheduled-time"
+                    step={60}
+                    value={format(scheduledAtDate, "HH:mm")}
+                    onChange={(e) => {
+                      const v = e.target.value;
+                      if (!v) return;
+                      const [hh, mm] = v.split(":").map(Number);
+                      setScheduledAtDate((prev) => {
+                        const next = new Date(prev);
+                        next.setHours(hh, mm, 0, 0);
+                        return next;
+                      });
+                    }}
+                    className="appearance-none bg-background [&::-webkit-calendar-picker-indicator]:hidden [&::-webkit-calendar-picker-indicator]:appearance-none"
+                  />
+                </div>
+              </div>
             </div>
 
             {editingId ? (
