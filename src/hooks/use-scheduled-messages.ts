@@ -23,6 +23,7 @@ export function useScheduledMessages() {
   const [content, setContent] = useState("");
   const [scheduledAtDate, setScheduledAtDate] = useState(() => new Date());
   const [scheduleDateOpen, setScheduleDateOpen] = useState(false);
+  const [selectedGroupId, setSelectedGroupId] = useState<string | null>(null);
 
   const loadRange = useCallback(async (anchor: Date) => {
     setLoading(true);
@@ -98,6 +99,7 @@ export function useScheduledMessages() {
     setContent("");
     setScheduledAtDate(new Date());
     setScheduleDateOpen(false);
+    setSelectedGroupId(null);
     setModalOpen(true);
   }, []);
 
@@ -107,6 +109,7 @@ export function useScheduledMessages() {
       setWebhookUrl("");
       setMsgtype("text");
       setContent("");
+      setSelectedGroupId(null);
       let at: Date;
       if (currentView === "month") {
         at = new Date(slotStart);
@@ -127,6 +130,7 @@ export function useScheduledMessages() {
     setMsgtype(m.msgtype === "markdown" ? "markdown" : "text");
     setContent(m.content);
     setScheduledAtDate(new Date(m.scheduledAt));
+    setSelectedGroupId(null);
     setModalOpen(true);
   }, []);
 
@@ -254,6 +258,8 @@ export function useScheduledMessages() {
     setScheduledAtDate,
     scheduleDateOpen,
     setScheduleDateOpen,
+    selectedGroupId,
+    setSelectedGroupId,
     openCreate,
     saveMessage,
     confirmDelete,

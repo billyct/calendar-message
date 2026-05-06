@@ -17,11 +17,15 @@ import {
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { ScheduleDateTimePicker } from "@/components/schedule-datetime-picker";
+import type { WebhookGroup } from "@/types/webhook-group";
 
 type MessageFormDialogProps = {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   editingId: string | null;
+  groups: WebhookGroup[];
+  selectedGroupId: string | null;
+  onGroupSelect: (groupId: string | null) => void;
   webhookUrl: string;
   onWebhookUrlChange: (value: string) => void;
   msgtype: "text" | "markdown";
@@ -42,6 +46,9 @@ export function MessageFormDialog({
   open,
   onOpenChange,
   editingId,
+  groups,
+  selectedGroupId,
+  onGroupSelect,
   webhookUrl,
   onWebhookUrlChange,
   msgtype,
@@ -57,6 +64,18 @@ export function MessageFormDialog({
   onSendTest,
   onSendSavedNow,
 }: MessageFormDialogProps) {
+  const handleGroupSelect = (value: string | null) => {
+    if (!value || value === "__none__") {
+      onGroupSelect(null);
+      return;
+    }
+    const group = groups.find((g) => g.id === value);
+    if (group) {
+      onGroupSelect(group.id);
+      onWebhookUrlChange(group.webhookUrl);
+    }
+  };
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-lg" showCloseButton>
@@ -68,6 +87,34 @@ export function MessageFormDialog({
         </DialogHeader>
 
         <div className="grid gap-4 py-1">
+          {groups.length > 0 && (
+            <div className="grid gap-2">
+              <Label htmlFor="group">选择群聊（可选）</Label>
+              <Select
+                value={selectedGroupId ?? "__none__"}
+                onValueChange={handleGroupSelect}
+              >
+                <SelectTrigger id="group" className="w-full min-w-0">
+                  <SelectValue placeholder="手动填写 Webhook URL" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="__none__">手动填写</SelectItem>
+                  {groups.map((g) => (
+                    <SelectItem key={g.id} value={g.id}>
+                      <span className="flex items-center gap-2">
+                        <span
+                          className="inline-block size-3 rounded-full"
+                          style={{ backgroundColor: g.color }}
+                        />
+                        {g.name}
+                      </span>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
+
           <div className="grid gap-2">
             <Label htmlFor="webhook">Webhook URL</Label>
             <Input

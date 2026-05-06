@@ -19,9 +19,18 @@ describe("AppHeader", () => {
     const user = userEvent.setup();
     const onNewMessage = vi.fn();
 
-    render(<AppHeader onNewMessage={onNewMessage} />, {
-      wrapper: TestProviders,
-    });
+    render(
+      <AppHeader
+        onNewMessage={onNewMessage}
+        groups={[]}
+        onCreateGroup={vi.fn()}
+        onUpdateGroup={vi.fn()}
+        onDeleteGroup={vi.fn()}
+      />,
+      {
+        wrapper: TestProviders,
+      },
+    );
 
     expect(
       screen.getByRole("heading", { name: /企业微信 Webhook 定时消息/ }),
