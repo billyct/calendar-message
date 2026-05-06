@@ -10,6 +10,16 @@ import {
   DropdownMenuLabel,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { ThemeMenu } from "@/components/theme-menu";
 import { GroupFormDialog } from "@/components/group-form-dialog";
 import type { WebhookGroup } from "@/types/webhook-group";
@@ -31,6 +41,7 @@ export function AppHeader({
 }: AppHeaderProps) {
   const [groupDialogOpen, setGroupDialogOpen] = useState(false);
   const [editingGroup, setEditingGroup] = useState<WebhookGroup | null>(null);
+  const [deletingGroup, setDeletingGroup] = useState<WebhookGroup | null>(null);
 
   const openCreate = () => {
     setEditingGroup(null);
@@ -57,12 +68,15 @@ export function AppHeader({
     }
   };
 
-  const handleDelete = async (group: WebhookGroup) => {
+  const handleConfirmDelete = async () => {
+    if (!deletingGroup) return;
     try {
-      await onDeleteGroup(group.id);
-      toast.success(`已删除「${group.name}」`);
+      await onDeleteGroup(deletingGroup.id);
+      toast.success(`已删除「${deletingGroup.name}」`);
     } catch (e) {
       toast.error(String(e));
+    } finally {
+      setDeletingGroup(null);
     }
   };
 
@@ -134,7 +148,7 @@ export function AppHeader({
                         <button
                           type="button"
                           className="rounded p-1 text-destructive hover:bg-destructive/10"
-                          onClick={() => void handleDelete(g)}
+                          onClick={() => setDeletingGroup(g)}
                           aria-label="删除"
                         >
                           <Trash2 className="size-3.5" />
@@ -159,6 +173,29 @@ export function AppHeader({
         editing={editingGroup}
         onSave={handleSaveGroup}
       />
+
+      <AlertDialog
+        open={!!deletingGroup}
+        onOpenChange={(open) => { if (!open) setDeletingGroup(null); }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>删除群聊「{deletingGroup?.name}」？</AlertDialogTitle>
+            <AlertDialogDescription>
+              此操作无法撤销，群聊将被永久移除。
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>取消</AlertDialogCancel>
+            <AlertDialogAction
+              variant="destructive"
+              onClick={() => void handleConfirmDelete()}
+            >
+              删除
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </>
   );
 }
