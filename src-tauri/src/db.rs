@@ -209,17 +209,3 @@ pub fn finalize_failed(conn: &Connection, id: &str, err: &str) -> rusqlite::Resu
     Ok(())
 }
 
-pub fn touch_send_attempt(
-    conn: &Connection,
-    id: &str,
-    at_ms: i64,
-    last_error: Option<&str>,
-) -> rusqlite::Result<()> {
-    conn.execute(
-        r#"UPDATE scheduled_messages SET
-          last_attempt_at = ?1, last_error = ?2, updated_at = ?1
-        WHERE id = ?3"#,
-        params![at_ms, last_error, id],
-    )?;
-    Ok(())
-}
