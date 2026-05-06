@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import {
   Dialog,
   DialogContent,
@@ -64,6 +65,13 @@ export function MessageFormDialog({
   onSendTest,
   onSendSavedNow,
 }: MessageFormDialogProps) {
+  useEffect(() => {
+    if (selectedGroupId === null) return;
+    if (!groups.some((g) => g.id === selectedGroupId)) {
+      onGroupSelect(null);
+    }
+  }, [groups, selectedGroupId, onGroupSelect]);
+
   const handleGroupSelect = (value: string | null) => {
     if (!value || value === "__none__") {
       onGroupSelect(null);

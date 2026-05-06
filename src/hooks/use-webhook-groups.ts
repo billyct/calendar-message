@@ -6,17 +6,13 @@ import type { WebhookGroup } from "@/types/webhook-group";
 
 export function useWebhookGroups() {
   const [groups, setGroups] = useState<WebhookGroup[]>([]);
-  const [loading, setLoading] = useState(false);
 
   const loadGroups = useCallback(async () => {
-    setLoading(true);
     try {
       const rows = await invoke<WebhookGroup[]>("list_groups");
       setGroups(rows);
     } catch (e) {
       toast.error(String(e));
-    } finally {
-      setLoading(false);
     }
   }, []);
 
@@ -54,7 +50,6 @@ export function useWebhookGroups() {
 
   return {
     groups,
-    loading,
     loadGroups,
     createGroup,
     updateGroup,

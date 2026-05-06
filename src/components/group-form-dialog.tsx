@@ -95,7 +95,7 @@ export function GroupFormDialog({
                     borderColor: color === c ? "currentColor" : "transparent",
                   }}
                   onClick={() => setColor(c)}
-                  aria-label={c}
+                  aria-label={`选择颜色 ${c}`}
                 />
               ))}
             </div>

@@ -241,7 +241,7 @@ pub fn create_group(
            VALUES (?1, ?2, ?3, ?4, ?5, ?5)"#,
         params![id, name, webhook_url, color, now],
     )?;
-    get_group(conn, &id).map(|o| o.expect("just inserted"))
+    get_group(conn, &id)?.ok_or(rusqlite::Error::QueryReturnedNoRows)
 }
 
 pub fn update_group(

@@ -213,8 +213,12 @@ fn create_group(
     if url.is_empty() {
         return Err("Webhook URL 不能为空".into());
     }
+    let color = input.color.trim();
+    if color.is_empty() {
+        return Err("颜色不能为空".into());
+    }
     let conn = Connection::open(&state.path).map_err(|e| e.to_string())?;
-    db::create_group(&conn, name, url, &input.color).map_err(|e| e.to_string())
+    db::create_group(&conn, name, url, color).map_err(|e| e.to_string())
 }
 
 #[tauri::command]
@@ -230,8 +234,12 @@ fn update_group(
     if url.is_empty() {
         return Err("Webhook URL 不能为空".into());
     }
+    let color = input.color.trim();
+    if color.is_empty() {
+        return Err("颜色不能为空".into());
+    }
     let conn = Connection::open(&state.path).map_err(|e| e.to_string())?;
-    match db::update_group(&conn, &input.id, name, url, &input.color)
+    match db::update_group(&conn, &input.id, name, url, color)
         .map_err(|e| e.to_string())?
     {
         Some(row) => Ok(row),
