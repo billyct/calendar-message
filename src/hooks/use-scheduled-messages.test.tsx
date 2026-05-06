@@ -11,6 +11,31 @@ vi.mock("@tauri-apps/api/core", () => ({
   invoke: vi.fn(),
 }));
 
+type EventCallback = (event: { event: string; payload: unknown }) => void;
+const eventListeners = new Map<string, Set<EventCallback>>();
+
+function emitTauriEvent(name: string, payload: unknown = null): void {
+  const subs = eventListeners.get(name);
+  if (!subs) return;
+  for (const cb of subs) {
+    cb({ event: name, payload });
+  }
+}
+
+vi.mock("@tauri-apps/api/event", () => ({
+  listen: vi.fn(async (name: string, cb: EventCallback) => {
+    let bucket = eventListeners.get(name);
+    if (!bucket) {
+      bucket = new Set();
+      eventListeners.set(name, bucket);
+    }
+    bucket.add(cb);
+    return () => {
+      bucket?.delete(cb);
+    };
+  }),
+}));
+
 vi.mock("sonner", () => ({
   toast: {
     success: vi.fn(),
@@ -26,6 +51,7 @@ describe("useScheduledMessages", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockedInvoke.mockReset();
+    eventListeners.clear();
     invokeRouter = createInvokeRouter();
     mockedInvoke.mockImplementation(invokeRouter.invokeImpl);
   });
@@ -383,5 +409,41 @@ describe("useScheduledMessages", () => {
     const title = result.current.events[0]!.title;
     expect(title.length).toBeLessThan(long.length + 20);
     expect(title).toContain("…");
+  });
+
+  it("reloads messages and updates status when messages-changed event fires", async () => {
+    let status: "pending" | "sent" = "pending";
+    invokeRouter.state.listMessages = async () => [
+      createScheduledMessage({ id: "rt-1", status }),
+    ];
+
+    const { result } = renderHook(() => useScheduledMessages());
+
+    await waitFor(() => expect(result.current.events).toHaveLength(1));
+    expect(result.current.events[0]!.title).toContain("待发送");
+
+    status = "sent";
+
+    await act(async () => {
+      emitTauriEvent("messages-changed");
+    });
+
+    await waitFor(() => {
+      expect(result.current.events[0]!.title).toContain("已发送");
+    });
+  });
+
+  it("unsubscribes from messages-changed when the hook unmounts", async () => {
+    const { unmount } = renderHook(() => useScheduledMessages());
+
+    await waitFor(() => {
+      expect(eventListeners.get("messages-changed")?.size).toBe(1);
+    });
+
+    unmount();
+
+    await waitFor(() => {
+      expect(eventListeners.get("messages-changed")?.size ?? 0).toBe(0);
+    });
   });
 });
