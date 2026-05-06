@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
   DropdownMenuContent,
+  DropdownMenuGroup,
   DropdownMenuLabel,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
@@ -102,31 +103,32 @@ export function AppHeader({
                 <ChevronDownIcon className="size-4" />
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-64">
-                <DropdownMenuLabel>群聊列表</DropdownMenuLabel>
-                {groups.length === 0 ? (
-                  <div className="px-2 py-3 text-center text-sm text-muted-foreground">
-                    暂无群聊
-                  </div>
-                ) : (
-                  groups.map((g) => (
-                    <div
-                      key={g.id}
-                      className="flex items-center justify-between rounded-md px-1.5 py-1 text-sm"
-                    >
-                      <div className="flex min-w-0 items-center gap-2">
-                        <span
-                          className="inline-block size-3 shrink-0 rounded-full"
-                          style={{ backgroundColor: g.color }}
-                        />
-                        <span className="truncate">{g.name}</span>
-                      </div>
-                      <div className="flex shrink-0 items-center gap-1">
-                        <button
-                          type="button"
-                          className="rounded p-1 hover:bg-accent"
-                          onClick={() => openEdit(g)}
-                          aria-label="编辑"
-                        >
+                <DropdownMenuGroup>
+                  <DropdownMenuLabel>群聊列表</DropdownMenuLabel>
+                  {groups.length === 0 ? (
+                    <div className="px-2 py-3 text-center text-sm text-muted-foreground">
+                      暂无群聊
+                    </div>
+                  ) : (
+                    groups.map((g) => (
+                      <div
+                        key={g.id}
+                        className="flex items-center justify-between rounded-md px-1.5 py-1 text-sm"
+                      >
+                        <div className="flex min-w-0 items-center gap-2">
+                          <span
+                            className="inline-block size-3 shrink-0 rounded-full"
+                            style={{ backgroundColor: g.color }}
+                          />
+                          <span className="truncate">{g.name}</span>
+                        </div>
+                        <div className="flex shrink-0 items-center gap-1">
+                          <button
+                            type="button"
+                            className="rounded p-1 hover:bg-accent"
+                            onClick={() => openEdit(g)}
+                            aria-label="编辑"
+                          >
                           <Pencil className="size-3.5" />
                         </button>
                         <button
@@ -141,6 +143,7 @@ export function AppHeader({
                     </div>
                   ))
                 )}
+                </DropdownMenuGroup>
               </DropdownMenuContent>
             </DropdownMenu>
           </div>
