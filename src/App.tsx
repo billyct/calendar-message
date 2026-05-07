@@ -1,4 +1,5 @@
 import { useScheduledMessages } from "@/hooks/use-scheduled-messages";
+import { useWebhookGroups } from "@/hooks/use-webhook-groups";
 import { AppHeader } from "@/components/app-header";
 import { MessageCalendar } from "@/components/message-calendar";
 import { MessageFormDialog } from "@/components/message-form-dialog";
@@ -6,10 +7,17 @@ import { DeleteMessageDialog } from "@/components/delete-message-dialog";
 
 export default function App() {
   const vm = useScheduledMessages();
+  const wg = useWebhookGroups();
 
   return (
     <div className="min-h-screen bg-background">
-      <AppHeader onNewMessage={vm.openCreate} />
+      <AppHeader
+        onNewMessage={vm.openCreate}
+        groups={wg.groups}
+        onCreateGroup={wg.createGroup}
+        onUpdateGroup={wg.updateGroup}
+        onDeleteGroup={wg.deleteGroup}
+      />
 
       <MessageCalendar
         loading={vm.loading}
@@ -26,6 +34,9 @@ export default function App() {
         open={vm.modalOpen}
         onOpenChange={vm.setModalOpen}
         editingId={vm.editingId}
+        groups={wg.groups}
+        selectedGroupId={vm.selectedGroupId}
+        onGroupSelect={vm.setSelectedGroupId}
         webhookUrl={vm.webhookUrl}
         onWebhookUrlChange={vm.setWebhookUrl}
         msgtype={vm.msgtype}

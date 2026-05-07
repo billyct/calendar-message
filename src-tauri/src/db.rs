@@ -1,7 +1,7 @@
 use chrono::Utc;
 use rusqlite::{params, Connection, OptionalExtension, TransactionBehavior};
 
-use crate::ScheduledMessageDto;
+use crate::{ScheduledMessageDto, WebhookGroupDto};
 
 pub fn init_schema(conn: &Connection) -> rusqlite::Result<()> {
     conn.execute_batch(
@@ -21,6 +21,14 @@ pub fn init_schema(conn: &Connection) -> rusqlite::Result<()> {
         );
         CREATE INDEX IF NOT EXISTS idx_scheduled_messages_time_status
           ON scheduled_messages(scheduled_at, status);
+        CREATE TABLE IF NOT EXISTS webhook_groups (
+          id TEXT PRIMARY KEY,
+          name TEXT NOT NULL,
+          webhook_url TEXT NOT NULL,
+          color TEXT NOT NULL,
+          created_at INTEGER NOT NULL,
+          updated_at INTEGER NOT NULL
+        );
         "#,
     )?;
     Ok(())
@@ -209,17 +217,72 @@ pub fn finalize_failed(conn: &Connection, id: &str, err: &str) -> rusqlite::Resu
     Ok(())
 }
 
-pub fn touch_send_attempt(
+fn group_row_to_dto(row: &rusqlite::Row<'_>) -> rusqlite::Result<WebhookGroupDto> {
+    Ok(WebhookGroupDto {
+        id: row.get(0)?,
+        name: row.get(1)?,
+        webhook_url: row.get(2)?,
+        color: row.get(3)?,
+        created_at: row.get(4)?,
+        updated_at: row.get(5)?,
+    })
+}
+
+pub fn create_group(
+    conn: &Connection,
+    name: &str,
+    webhook_url: &str,
+    color: &str,
+) -> rusqlite::Result<WebhookGroupDto> {
+    let id = uuid::Uuid::new_v4().to_string();
+    let now = Utc::now().timestamp_millis();
+    conn.execute(
+        r#"INSERT INTO webhook_groups (id, name, webhook_url, color, created_at, updated_at)
+           VALUES (?1, ?2, ?3, ?4, ?5, ?5)"#,
+        params![id, name, webhook_url, color, now],
+    )?;
+    get_group(conn, &id)?.ok_or(rusqlite::Error::QueryReturnedNoRows)
+}
+
+pub fn update_group(
     conn: &Connection,
     id: &str,
-    at_ms: i64,
-    last_error: Option<&str>,
-) -> rusqlite::Result<()> {
-    conn.execute(
-        r#"UPDATE scheduled_messages SET
-          last_attempt_at = ?1, last_error = ?2, updated_at = ?1
-        WHERE id = ?3"#,
-        params![at_ms, last_error, id],
+    name: &str,
+    webhook_url: &str,
+    color: &str,
+) -> rusqlite::Result<Option<WebhookGroupDto>> {
+    let now = Utc::now().timestamp_millis();
+    let n = conn.execute(
+        r#"UPDATE webhook_groups SET name = ?1, webhook_url = ?2, color = ?3, updated_at = ?4
+           WHERE id = ?5"#,
+        params![name, webhook_url, color, now, id],
     )?;
-    Ok(())
+    if n == 0 {
+        return Ok(None);
+    }
+    get_group(conn, id)
+}
+
+pub fn delete_group(conn: &Connection, id: &str) -> rusqlite::Result<bool> {
+    let n = conn.execute("DELETE FROM webhook_groups WHERE id = ?1", params![id])?;
+    Ok(n > 0)
+}
+
+pub fn get_group(conn: &Connection, id: &str) -> rusqlite::Result<Option<WebhookGroupDto>> {
+    let mut stmt = conn.prepare(
+        "SELECT id, name, webhook_url, color, created_at, updated_at FROM webhook_groups WHERE id = ?1",
+    )?;
+    stmt.query_row(params![id], group_row_to_dto).optional()
+}
+
+pub fn list_groups(conn: &Connection) -> rusqlite::Result<Vec<WebhookGroupDto>> {
+    let mut stmt = conn.prepare(
+        "SELECT id, name, webhook_url, color, created_at, updated_at FROM webhook_groups ORDER BY created_at ASC",
+    )?;
+    let mapped = stmt.query_map([], group_row_to_dto)?;
+    let mut out = Vec::new();
+    for r in mapped {
+        out.push(r?);
+    }
+    Ok(out)
 }
