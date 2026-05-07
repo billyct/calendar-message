@@ -6,8 +6,8 @@ import { MessageFormDialog } from "@/components/message-form-dialog";
 import { DeleteMessageDialog } from "@/components/delete-message-dialog";
 
 export default function App() {
-  const vm = useScheduledMessages();
   const wg = useWebhookGroups();
+  const vm = useScheduledMessages(wg.groups);
 
   return (
     <div className="min-h-screen bg-background">

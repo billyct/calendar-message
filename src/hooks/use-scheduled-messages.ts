@@ -7,10 +7,18 @@ import { toast } from "sonner";
 
 import { statusLabel } from "@/lib/message-status";
 import type { CalendarEvent, ScheduledMessage } from "@/types/scheduled-message";
+import type { WebhookGroup } from "@/types/webhook-group";
 
 const MESSAGES_CHANGED_EVENT = "messages-changed";
 
-export function useScheduledMessages() {
+function matchingGroupId(webhookUrl: string, groups: WebhookGroup[]): string | null {
+  const t = webhookUrl.trim();
+  if (!t) return null;
+  const g = groups.find((x) => x.webhookUrl.trim() === t);
+  return g?.id ?? null;
+}
+
+export function useScheduledMessages(groups: WebhookGroup[] = []) {
   const [messages, setMessages] = useState<ScheduledMessage[]>([]);
   const [currentDate, setCurrentDate] = useState(new Date());
   const [currentView, setCurrentView] = useState<View>("month");
@@ -24,6 +32,13 @@ export function useScheduledMessages() {
   const [scheduledAtDate, setScheduledAtDate] = useState(() => new Date());
   const [scheduleDateOpen, setScheduleDateOpen] = useState(false);
   const [selectedGroupId, setSelectedGroupId] = useState<string | null>(null);
+  /** 打开编辑时群聊列表尚未加载完成，待列表就绪后再按 URL 匹配一次 */
+  const pendingGroupMatchRef = useRef(false);
+
+  const setGroupSelection = useCallback((id: string | null) => {
+    if (id === null) pendingGroupMatchRef.current = false;
+    setSelectedGroupId(id);
+  }, []);
 
   const loadRange = useCallback(async (anchor: Date) => {
     setLoading(true);
@@ -92,7 +107,20 @@ export function useScheduledMessages() {
     });
   }, [messages]);
 
+  useEffect(() => {
+    if (!modalOpen) pendingGroupMatchRef.current = false;
+  }, [modalOpen]);
+
+  useEffect(() => {
+    if (!modalOpen || !editingId || !pendingGroupMatchRef.current) return;
+    if (groups.length === 0) return;
+    pendingGroupMatchRef.current = false;
+    const next = matchingGroupId(webhookUrl, groups);
+    if (next) setSelectedGroupId(next);
+  }, [groups, modalOpen, editingId, webhookUrl]);
+
   const openCreate = useCallback(() => {
+    pendingGroupMatchRef.current = false;
     setEditingId(null);
     setWebhookUrl("");
     setMsgtype("text");
@@ -105,6 +133,7 @@ export function useScheduledMessages() {
 
   const openCreateFromSlot = useCallback(
     (slotStart: Date) => {
+      pendingGroupMatchRef.current = false;
       setEditingId(null);
       setWebhookUrl("");
       setMsgtype("text");
@@ -124,15 +153,21 @@ export function useScheduledMessages() {
     [currentView],
   );
 
-  const openEdit = useCallback((m: ScheduledMessage) => {
-    setEditingId(m.id);
-    setWebhookUrl(m.webhookUrl);
-    setMsgtype(m.msgtype === "markdown" ? "markdown" : "text");
-    setContent(m.content);
-    setScheduledAtDate(new Date(m.scheduledAt));
-    setSelectedGroupId(null);
-    setModalOpen(true);
-  }, []);
+  const openEdit = useCallback(
+    (m: ScheduledMessage) => {
+      const gid = matchingGroupId(m.webhookUrl, groups);
+      setEditingId(m.id);
+      setWebhookUrl(m.webhookUrl);
+      setMsgtype(m.msgtype === "markdown" ? "markdown" : "text");
+      setContent(m.content);
+      setScheduledAtDate(new Date(m.scheduledAt));
+      setSelectedGroupId(gid);
+      pendingGroupMatchRef.current =
+        gid === null && groups.length === 0 && m.webhookUrl.trim() !== "";
+      setModalOpen(true);
+    },
+    [groups],
+  );
 
   const closeModal = useCallback(() => setModalOpen(false), []);
 
@@ -259,7 +294,7 @@ export function useScheduledMessages() {
     scheduleDateOpen,
     setScheduleDateOpen,
     selectedGroupId,
-    setSelectedGroupId,
+    setSelectedGroupId: setGroupSelection,
     openCreate,
     saveMessage,
     confirmDelete,

@@ -4,6 +4,7 @@ import { invoke } from "@tauri-apps/api/core";
 import { toast } from "sonner";
 
 import { useScheduledMessages } from "@/hooks/use-scheduled-messages";
+import type { WebhookGroup } from "@/types/webhook-group";
 import { createScheduledMessage } from "@/test/factories";
 import { createInvokeRouter } from "@/test/mock-tauri-invoke";
 
@@ -64,7 +65,7 @@ describe("useScheduledMessages", () => {
     const row = createScheduledMessage({ id: "a" });
     invokeRouter.state.listMessages = async () => [row];
 
-    const { result } = renderHook(() => useScheduledMessages());
+    const { result } = renderHook(() => useScheduledMessages([]));
 
     await waitFor(() => {
       expect(mockedInvoke).toHaveBeenCalledWith(
@@ -93,7 +94,7 @@ describe("useScheduledMessages", () => {
       throw new Error("network");
     };
 
-    const { result } = renderHook(() => useScheduledMessages());
+    const { result } = renderHook(() => useScheduledMessages([]));
 
     await waitFor(() => expect(result.current.events).toHaveLength(1));
 
@@ -106,7 +107,7 @@ describe("useScheduledMessages", () => {
   });
 
   it("openCreate resets draft fields, closes date popover state, and opens modal", async () => {
-    const { result } = renderHook(() => useScheduledMessages());
+    const { result } = renderHook(() => useScheduledMessages([]));
 
     await waitFor(() => expect(result.current.loading).toBe(false));
 
@@ -133,7 +134,7 @@ describe("useScheduledMessages", () => {
     });
     invokeRouter.state.listMessages = async () => [msg];
 
-    const { result } = renderHook(() => useScheduledMessages());
+    const { result } = renderHook(() => useScheduledMessages([]));
 
     await waitFor(() => expect(result.current.events).toHaveLength(1));
 
@@ -147,13 +148,70 @@ describe("useScheduledMessages", () => {
     expect(result.current.msgtype).toBe("markdown");
     expect(result.current.content).toBe("body");
     expect(result.current.scheduledAtDate.getTime()).toBe(1_700_000_000_000);
+    expect(result.current.selectedGroupId).toBeNull();
+  });
+
+  it("openEdit selects matching webhook group by saved URL", async () => {
+    const msg = createScheduledMessage({ id: "e1" });
+    const groups: WebhookGroup[] = [
+      {
+        id: "g1",
+        name: "团队",
+        webhookUrl: msg.webhookUrl,
+        color: "#3b82f6",
+        createdAt: 1,
+        updatedAt: 1,
+      },
+    ];
+    invokeRouter.state.listMessages = async () => [msg];
+
+    const { result } = renderHook(() => useScheduledMessages(groups));
+    await waitFor(() => expect(result.current.events).toHaveLength(1));
+
+    act(() => {
+      result.current.onSelectEvent(result.current.events[0]!);
+    });
+
+    expect(result.current.selectedGroupId).toBe("g1");
+  });
+
+  it("resolves group selection after groups list loads", async () => {
+    const msg = createScheduledMessage({ id: "late" });
+    invokeRouter.state.listMessages = async () => [msg];
+    const groupsAfterLoad: WebhookGroup[] = [
+      {
+        id: "g1",
+        name: "团队",
+        webhookUrl: msg.webhookUrl,
+        color: "#3b82f6",
+        createdAt: 1,
+        updatedAt: 1,
+      },
+    ];
+
+    const { result, rerender } = renderHook(
+      ({ groups }: { groups: WebhookGroup[] }) => useScheduledMessages(groups),
+      { initialProps: { groups: [] as WebhookGroup[] } },
+    );
+
+    await waitFor(() => expect(result.current.events).toHaveLength(1));
+
+    act(() => {
+      result.current.onSelectEvent(result.current.events[0]!);
+    });
+
+    expect(result.current.selectedGroupId).toBeNull();
+
+    rerender({ groups: groupsAfterLoad });
+
+    await waitFor(() => expect(result.current.selectedGroupId).toBe("g1"));
   });
 
   it("month view slot keeps slot date but uses wall-clock hours", async () => {
     vi.useFakeTimers({ toFake: ["Date"] });
     vi.setSystemTime(new Date(2024, 5, 15, 14, 35, 0));
 
-    const { result } = renderHook(() => useScheduledMessages());
+    const { result } = renderHook(() => useScheduledMessages([]));
 
     await waitFor(() => expect(result.current.loading).toBe(false));
 
@@ -169,7 +227,7 @@ describe("useScheduledMessages", () => {
   });
 
   it("week/day slot uses the slot start instant as scheduled time", async () => {
-    const { result } = renderHook(() => useScheduledMessages());
+    const { result } = renderHook(() => useScheduledMessages([]));
 
     await waitFor(() => expect(result.current.loading).toBe(false));
 
@@ -187,7 +245,7 @@ describe("useScheduledMessages", () => {
   });
 
   it("saveMessage invokes create_message when not editing", async () => {
-    const { result } = renderHook(() => useScheduledMessages());
+    const { result } = renderHook(() => useScheduledMessages([]));
     await waitFor(() => expect(mockedInvoke).toHaveBeenCalled());
 
     act(() => {
@@ -217,7 +275,7 @@ describe("useScheduledMessages", () => {
   it("saveMessage keeps modal open and toasts on create failure", async () => {
     invokeRouter.state.throwOn.create_message = new Error("bad-create");
 
-    const { result } = renderHook(() => useScheduledMessages());
+    const { result } = renderHook(() => useScheduledMessages([]));
     await waitFor(() => expect(result.current.loading).toBe(false));
 
     act(() => {
@@ -238,7 +296,7 @@ describe("useScheduledMessages", () => {
     const msg = createScheduledMessage({ id: "u1" });
     invokeRouter.state.listMessages = async () => [msg];
 
-    const { result } = renderHook(() => useScheduledMessages());
+    const { result } = renderHook(() => useScheduledMessages([]));
     await waitFor(() => expect(result.current.events).toHaveLength(1));
 
     act(() => {
@@ -267,7 +325,7 @@ describe("useScheduledMessages", () => {
     invokeRouter.state.listMessages = async () => [msg];
     invokeRouter.state.throwOn.update_message = new Error("bad-update");
 
-    const { result } = renderHook(() => useScheduledMessages());
+    const { result } = renderHook(() => useScheduledMessages([]));
     await waitFor(() => expect(result.current.events).toHaveLength(1));
 
     act(() => {
@@ -286,7 +344,7 @@ describe("useScheduledMessages", () => {
     const msg = createScheduledMessage({ id: "d1" });
     invokeRouter.state.listMessages = async () => [msg];
 
-    const { result } = renderHook(() => useScheduledMessages());
+    const { result } = renderHook(() => useScheduledMessages([]));
     await waitFor(() => expect(result.current.events).toHaveLength(1));
 
     act(() => {
@@ -308,7 +366,7 @@ describe("useScheduledMessages", () => {
     invokeRouter.state.listMessages = async () => [msg];
     invokeRouter.state.throwOn.delete_message = new Error("bad-delete");
 
-    const { result } = renderHook(() => useScheduledMessages());
+    const { result } = renderHook(() => useScheduledMessages([]));
     await waitFor(() => expect(result.current.events).toHaveLength(1));
 
     act(() => {
@@ -326,7 +384,7 @@ describe("useScheduledMessages", () => {
   });
 
   it("sendTestFromForm invokes send_preview and toasts success", async () => {
-    const { result } = renderHook(() => useScheduledMessages());
+    const { result } = renderHook(() => useScheduledMessages([]));
     await waitFor(() => expect(result.current.loading).toBe(false));
 
     act(() => {
@@ -353,7 +411,7 @@ describe("useScheduledMessages", () => {
   it("sendTestFromForm toasts error when preview fails", async () => {
     invokeRouter.state.throwOn.send_preview = new Error("preview-down");
 
-    const { result } = renderHook(() => useScheduledMessages());
+    const { result } = renderHook(() => useScheduledMessages([]));
     await waitFor(() => expect(result.current.loading).toBe(false));
 
     act(() => {
@@ -372,7 +430,7 @@ describe("useScheduledMessages", () => {
     const msg = createScheduledMessage({ id: "s1" });
     invokeRouter.state.listMessages = async () => [msg];
 
-    const { result } = renderHook(() => useScheduledMessages());
+    const { result } = renderHook(() => useScheduledMessages([]));
     await waitFor(() => expect(result.current.events).toHaveLength(1));
 
     await act(async () => {
@@ -386,7 +444,7 @@ describe("useScheduledMessages", () => {
   it("sendSavedNow toasts error when invoke fails", async () => {
     invokeRouter.state.throwOn.send_saved_now = new Error("send-fail");
 
-    const { result } = renderHook(() => useScheduledMessages());
+    const { result } = renderHook(() => useScheduledMessages([]));
     await waitFor(() => expect(result.current.loading).toBe(false));
 
     await act(async () => {
@@ -402,7 +460,7 @@ describe("useScheduledMessages", () => {
       createScheduledMessage({ content: long }),
     ];
 
-    const { result } = renderHook(() => useScheduledMessages());
+    const { result } = renderHook(() => useScheduledMessages([]));
 
     await waitFor(() => expect(result.current.events).toHaveLength(1));
 
@@ -417,7 +475,7 @@ describe("useScheduledMessages", () => {
       createScheduledMessage({ id: "rt-1", status }),
     ];
 
-    const { result } = renderHook(() => useScheduledMessages());
+    const { result } = renderHook(() => useScheduledMessages([]));
 
     await waitFor(() => expect(result.current.events).toHaveLength(1));
     expect(result.current.events[0]!.title).toContain("待发送");
@@ -434,7 +492,7 @@ describe("useScheduledMessages", () => {
   });
 
   it("unsubscribes from messages-changed when the hook unmounts", async () => {
-    const { unmount } = renderHook(() => useScheduledMessages());
+    const { unmount } = renderHook(() => useScheduledMessages([]));
 
     await waitFor(() => {
       expect(eventListeners.get("messages-changed")?.size).toBe(1);
