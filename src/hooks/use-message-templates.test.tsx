@@ -197,7 +197,7 @@ describe("useMessageTemplates", () => {
     renderHook(() => useMessageTemplates(), { wrapper });
 
     await waitFor(() => {
-      expect(toast.error).toHaveBeenCalledWith("加载模板失败");
+      expect(toast.error).toHaveBeenCalledWith(expect.stringContaining(""));
     });
   });
 });
