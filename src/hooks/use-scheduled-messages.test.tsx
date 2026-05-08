@@ -1,9 +1,12 @@
+import type { ReactNode } from "react";
 import { describe, expect, it, vi, afterEach, beforeEach } from "vitest";
 import { act, renderHook, waitFor } from "@testing-library/react";
+import { Provider, createStore } from "jotai";
 import { invoke } from "@tauri-apps/api/core";
 import { toast } from "sonner";
 
 import { useScheduledMessages } from "@/hooks/use-scheduled-messages";
+import { groupsAtom } from "@/store/webhook-groups-atoms";
 import type { WebhookGroup } from "@/types/webhook-group";
 import { createScheduledMessage } from "@/test/factories";
 import { createInvokeRouter } from "@/test/mock-tauri-invoke";
@@ -48,6 +51,11 @@ const mockedInvoke = vi.mocked(invoke);
 
 describe("useScheduledMessages", () => {
   let invokeRouter: ReturnType<typeof createInvokeRouter>;
+  let store: ReturnType<typeof createStore>;
+
+  function JotaiWrapper({ children }: { children: ReactNode }) {
+    return <Provider store={store}>{children}</Provider>;
+  }
 
   beforeEach(() => {
     vi.clearAllMocks();
@@ -55,6 +63,7 @@ describe("useScheduledMessages", () => {
     eventListeners.clear();
     invokeRouter = createInvokeRouter();
     mockedInvoke.mockImplementation(invokeRouter.invokeImpl);
+    store = createStore();
   });
 
   afterEach(() => {
@@ -65,7 +74,7 @@ describe("useScheduledMessages", () => {
     const row = createScheduledMessage({ id: "a" });
     invokeRouter.state.listMessages = async () => [row];
 
-    const { result } = renderHook(() => useScheduledMessages([]));
+    const { result } = renderHook(() => useScheduledMessages(), { wrapper: JotaiWrapper });
 
     await waitFor(() => {
       expect(mockedInvoke).toHaveBeenCalledWith(
@@ -94,7 +103,7 @@ describe("useScheduledMessages", () => {
       throw new Error("network");
     };
 
-    const { result } = renderHook(() => useScheduledMessages([]));
+    const { result } = renderHook(() => useScheduledMessages(), { wrapper: JotaiWrapper });
 
     await waitFor(() => expect(result.current.events).toHaveLength(1));
 
@@ -107,7 +116,7 @@ describe("useScheduledMessages", () => {
   });
 
   it("openCreate resets draft fields, closes date popover state, and opens modal", async () => {
-    const { result } = renderHook(() => useScheduledMessages([]));
+    const { result } = renderHook(() => useScheduledMessages(), { wrapper: JotaiWrapper });
 
     await waitFor(() => expect(result.current.loading).toBe(false));
 
@@ -134,7 +143,7 @@ describe("useScheduledMessages", () => {
     });
     invokeRouter.state.listMessages = async () => [msg];
 
-    const { result } = renderHook(() => useScheduledMessages([]));
+    const { result } = renderHook(() => useScheduledMessages(), { wrapper: JotaiWrapper });
 
     await waitFor(() => expect(result.current.events).toHaveLength(1));
 
@@ -165,7 +174,10 @@ describe("useScheduledMessages", () => {
     ];
     invokeRouter.state.listMessages = async () => [msg];
 
-    const { result } = renderHook(() => useScheduledMessages(groups));
+    store.set(groupsAtom, groups);
+    const { result } = renderHook(() => useScheduledMessages(), {
+      wrapper: JotaiWrapper,
+    });
     await waitFor(() => expect(result.current.events).toHaveLength(1));
 
     act(() => {
@@ -189,10 +201,9 @@ describe("useScheduledMessages", () => {
       },
     ];
 
-    const { result, rerender } = renderHook(
-      ({ groups }: { groups: WebhookGroup[] }) => useScheduledMessages(groups),
-      { initialProps: { groups: [] as WebhookGroup[] } },
-    );
+    const { result } = renderHook(() => useScheduledMessages(), {
+      wrapper: JotaiWrapper,
+    });
 
     await waitFor(() => expect(result.current.events).toHaveLength(1));
 
@@ -202,7 +213,9 @@ describe("useScheduledMessages", () => {
 
     expect(result.current.selectedGroupId).toBeNull();
 
-    rerender({ groups: groupsAfterLoad });
+    act(() => {
+      store.set(groupsAtom, groupsAfterLoad);
+    });
 
     await waitFor(() => expect(result.current.selectedGroupId).toBe("g1"));
   });
@@ -211,7 +224,7 @@ describe("useScheduledMessages", () => {
     vi.useFakeTimers({ toFake: ["Date"] });
     vi.setSystemTime(new Date(2024, 5, 15, 14, 35, 0));
 
-    const { result } = renderHook(() => useScheduledMessages([]));
+    const { result } = renderHook(() => useScheduledMessages(), { wrapper: JotaiWrapper });
 
     await waitFor(() => expect(result.current.loading).toBe(false));
 
@@ -227,7 +240,7 @@ describe("useScheduledMessages", () => {
   });
 
   it("week/day slot uses the slot start instant as scheduled time", async () => {
-    const { result } = renderHook(() => useScheduledMessages([]));
+    const { result } = renderHook(() => useScheduledMessages(), { wrapper: JotaiWrapper });
 
     await waitFor(() => expect(result.current.loading).toBe(false));
 
@@ -245,7 +258,7 @@ describe("useScheduledMessages", () => {
   });
 
   it("saveMessage invokes create_message when not editing", async () => {
-    const { result } = renderHook(() => useScheduledMessages([]));
+    const { result } = renderHook(() => useScheduledMessages(), { wrapper: JotaiWrapper });
     await waitFor(() => expect(mockedInvoke).toHaveBeenCalled());
 
     act(() => {
@@ -275,7 +288,7 @@ describe("useScheduledMessages", () => {
   it("saveMessage keeps modal open and toasts on create failure", async () => {
     invokeRouter.state.throwOn.create_message = new Error("bad-create");
 
-    const { result } = renderHook(() => useScheduledMessages([]));
+    const { result } = renderHook(() => useScheduledMessages(), { wrapper: JotaiWrapper });
     await waitFor(() => expect(result.current.loading).toBe(false));
 
     act(() => {
@@ -296,7 +309,7 @@ describe("useScheduledMessages", () => {
     const msg = createScheduledMessage({ id: "u1" });
     invokeRouter.state.listMessages = async () => [msg];
 
-    const { result } = renderHook(() => useScheduledMessages([]));
+    const { result } = renderHook(() => useScheduledMessages(), { wrapper: JotaiWrapper });
     await waitFor(() => expect(result.current.events).toHaveLength(1));
 
     act(() => {
@@ -325,7 +338,7 @@ describe("useScheduledMessages", () => {
     invokeRouter.state.listMessages = async () => [msg];
     invokeRouter.state.throwOn.update_message = new Error("bad-update");
 
-    const { result } = renderHook(() => useScheduledMessages([]));
+    const { result } = renderHook(() => useScheduledMessages(), { wrapper: JotaiWrapper });
     await waitFor(() => expect(result.current.events).toHaveLength(1));
 
     act(() => {
@@ -344,7 +357,7 @@ describe("useScheduledMessages", () => {
     const msg = createScheduledMessage({ id: "d1" });
     invokeRouter.state.listMessages = async () => [msg];
 
-    const { result } = renderHook(() => useScheduledMessages([]));
+    const { result } = renderHook(() => useScheduledMessages(), { wrapper: JotaiWrapper });
     await waitFor(() => expect(result.current.events).toHaveLength(1));
 
     act(() => {
@@ -366,7 +379,7 @@ describe("useScheduledMessages", () => {
     invokeRouter.state.listMessages = async () => [msg];
     invokeRouter.state.throwOn.delete_message = new Error("bad-delete");
 
-    const { result } = renderHook(() => useScheduledMessages([]));
+    const { result } = renderHook(() => useScheduledMessages(), { wrapper: JotaiWrapper });
     await waitFor(() => expect(result.current.events).toHaveLength(1));
 
     act(() => {
@@ -384,7 +397,7 @@ describe("useScheduledMessages", () => {
   });
 
   it("sendTestFromForm invokes send_preview and toasts success", async () => {
-    const { result } = renderHook(() => useScheduledMessages([]));
+    const { result } = renderHook(() => useScheduledMessages(), { wrapper: JotaiWrapper });
     await waitFor(() => expect(result.current.loading).toBe(false));
 
     act(() => {
@@ -411,7 +424,7 @@ describe("useScheduledMessages", () => {
   it("sendTestFromForm toasts error when preview fails", async () => {
     invokeRouter.state.throwOn.send_preview = new Error("preview-down");
 
-    const { result } = renderHook(() => useScheduledMessages([]));
+    const { result } = renderHook(() => useScheduledMessages(), { wrapper: JotaiWrapper });
     await waitFor(() => expect(result.current.loading).toBe(false));
 
     act(() => {
@@ -430,7 +443,7 @@ describe("useScheduledMessages", () => {
     const msg = createScheduledMessage({ id: "s1" });
     invokeRouter.state.listMessages = async () => [msg];
 
-    const { result } = renderHook(() => useScheduledMessages([]));
+    const { result } = renderHook(() => useScheduledMessages(), { wrapper: JotaiWrapper });
     await waitFor(() => expect(result.current.events).toHaveLength(1));
 
     await act(async () => {
@@ -444,7 +457,7 @@ describe("useScheduledMessages", () => {
   it("sendSavedNow toasts error when invoke fails", async () => {
     invokeRouter.state.throwOn.send_saved_now = new Error("send-fail");
 
-    const { result } = renderHook(() => useScheduledMessages([]));
+    const { result } = renderHook(() => useScheduledMessages(), { wrapper: JotaiWrapper });
     await waitFor(() => expect(result.current.loading).toBe(false));
 
     await act(async () => {
@@ -460,7 +473,7 @@ describe("useScheduledMessages", () => {
       createScheduledMessage({ content: long }),
     ];
 
-    const { result } = renderHook(() => useScheduledMessages([]));
+    const { result } = renderHook(() => useScheduledMessages(), { wrapper: JotaiWrapper });
 
     await waitFor(() => expect(result.current.events).toHaveLength(1));
 
@@ -475,7 +488,7 @@ describe("useScheduledMessages", () => {
       createScheduledMessage({ id: "rt-1", status }),
     ];
 
-    const { result } = renderHook(() => useScheduledMessages([]));
+    const { result } = renderHook(() => useScheduledMessages(), { wrapper: JotaiWrapper });
 
     await waitFor(() => expect(result.current.events).toHaveLength(1));
     expect(result.current.events[0]!.title).toContain("待发送");
@@ -492,7 +505,7 @@ describe("useScheduledMessages", () => {
   });
 
   it("unsubscribes from messages-changed when the hook unmounts", async () => {
-    const { unmount } = renderHook(() => useScheduledMessages([]));
+    const { unmount } = renderHook(() => useScheduledMessages(), { wrapper: JotaiWrapper });
 
     await waitFor(() => {
       expect(eventListeners.get("messages-changed")?.size).toBe(1);

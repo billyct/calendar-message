@@ -1,13 +1,30 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useAtom, useAtomValue, useSetAtom } from "jotai";
+import { useCallback, useEffect, useRef } from "react";
 import type { View } from "react-big-calendar";
 import { endOfMonth, startOfMonth } from "date-fns";
 import { invoke } from "@tauri-apps/api/core";
 import { listen, type UnlistenFn } from "@tauri-apps/api/event";
 import { toast } from "sonner";
 
-import { statusLabel } from "@/lib/message-status";
 import type { CalendarEvent, ScheduledMessage } from "@/types/scheduled-message";
 import type { WebhookGroup } from "@/types/webhook-group";
+import { groupsAtom } from "@/store/webhook-groups-atoms";
+import {
+  contentAtom,
+  currentDateAtom,
+  currentViewAtom,
+  deleteOpenAtom,
+  editingIdAtom,
+  eventsAtom,
+  loadingAtom,
+  messagesAtom,
+  modalOpenAtom,
+  msgtypeAtom,
+  scheduleDateOpenAtom,
+  scheduledAtDateAtom,
+  selectedGroupIdAtom,
+  webhookUrlAtom,
+} from "@/store/scheduled-messages-atoms";
 
 const MESSAGES_CHANGED_EVENT = "messages-changed";
 
@@ -18,27 +35,32 @@ function matchingGroupId(webhookUrl: string, groups: WebhookGroup[]): string | n
   return g?.id ?? null;
 }
 
-export function useScheduledMessages(groups: WebhookGroup[] = []) {
-  const [messages, setMessages] = useState<ScheduledMessage[]>([]);
-  const [currentDate, setCurrentDate] = useState(new Date());
-  const [currentView, setCurrentView] = useState<View>("month");
-  const [loading, setLoading] = useState(false);
-  const [modalOpen, setModalOpen] = useState(false);
-  const [deleteOpen, setDeleteOpen] = useState(false);
-  const [editingId, setEditingId] = useState<string | null>(null);
-  const [webhookUrl, setWebhookUrl] = useState("");
-  const [msgtype, setMsgtype] = useState<"text" | "markdown">("text");
-  const [content, setContent] = useState("");
-  const [scheduledAtDate, setScheduledAtDate] = useState(() => new Date());
-  const [scheduleDateOpen, setScheduleDateOpen] = useState(false);
-  const [selectedGroupId, setSelectedGroupId] = useState<string | null>(null);
+export function useScheduledMessages() {
+  const groups = useAtomValue(groupsAtom);
+
+  const setMessages = useSetAtom(messagesAtom);
+  const [loading, setLoading] = useAtom(loadingAtom);
+  const [currentDate, setCurrentDate] = useAtom(currentDateAtom);
+  const [currentView, setCurrentView] = useAtom(currentViewAtom);
+  const [modalOpen, setModalOpen] = useAtom(modalOpenAtom);
+  const [deleteOpen, setDeleteOpen] = useAtom(deleteOpenAtom);
+  const [editingId, setEditingId] = useAtom(editingIdAtom);
+  const [webhookUrl, setWebhookUrl] = useAtom(webhookUrlAtom);
+  const [msgtype, setMsgtype] = useAtom(msgtypeAtom);
+  const [content, setContent] = useAtom(contentAtom);
+  const [scheduledAtDate, setScheduledAtDate] = useAtom(scheduledAtDateAtom);
+  const [scheduleDateOpen, setScheduleDateOpen] = useAtom(scheduleDateOpenAtom);
+  const [selectedGroupId, setSelectedGroupId] = useAtom(selectedGroupIdAtom);
+
+  const events = useAtomValue(eventsAtom);
+
   /** 打开编辑时群聊列表尚未加载完成，待列表就绪后再按 URL 匹配一次 */
   const pendingGroupMatchRef = useRef(false);
 
   const setGroupSelection = useCallback((id: string | null) => {
     if (id === null) pendingGroupMatchRef.current = false;
     setSelectedGroupId(id);
-  }, []);
+  }, [setSelectedGroupId]);
 
   const loadRange = useCallback(async (anchor: Date) => {
     setLoading(true);
@@ -58,7 +80,7 @@ export function useScheduledMessages(groups: WebhookGroup[] = []) {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [setLoading, setMessages]);
 
   useEffect(() => {
     void loadRange(currentDate);
@@ -91,22 +113,6 @@ export function useScheduledMessages(groups: WebhookGroup[] = []) {
     };
   }, []);
 
-  const events: CalendarEvent[] = useMemo(() => {
-    return messages.map((m) => {
-      const start = new Date(m.scheduledAt);
-      const end = new Date(m.scheduledAt + 30 * 60 * 1000);
-      const preview =
-        m.content.length > 42 ? `${m.content.slice(0, 42)}…` : m.content;
-      return {
-        id: m.id,
-        title: `[${statusLabel(m.status)}] ${preview || "(空内容)"}`,
-        start,
-        end,
-        resource: m,
-      };
-    });
-  }, [messages]);
-
   useEffect(() => {
     if (!modalOpen) pendingGroupMatchRef.current = false;
   }, [modalOpen]);
@@ -117,7 +123,7 @@ export function useScheduledMessages(groups: WebhookGroup[] = []) {
     pendingGroupMatchRef.current = false;
     const next = matchingGroupId(webhookUrl, groups);
     if (next) setSelectedGroupId(next);
-  }, [groups, modalOpen, editingId, webhookUrl]);
+  }, [groups, modalOpen, editingId, webhookUrl, setSelectedGroupId]);
 
   const openCreate = useCallback(() => {
     pendingGroupMatchRef.current = false;
@@ -129,7 +135,16 @@ export function useScheduledMessages(groups: WebhookGroup[] = []) {
     setScheduleDateOpen(false);
     setSelectedGroupId(null);
     setModalOpen(true);
-  }, []);
+  }, [
+    setContent,
+    setEditingId,
+    setModalOpen,
+    setMsgtype,
+    setScheduleDateOpen,
+    setScheduledAtDate,
+    setSelectedGroupId,
+    setWebhookUrl,
+  ]);
 
   const openCreateFromSlot = useCallback(
     (slotStart: Date) => {
@@ -150,7 +165,16 @@ export function useScheduledMessages(groups: WebhookGroup[] = []) {
       setScheduledAtDate(at);
       setModalOpen(true);
     },
-    [currentView],
+    [
+      currentView,
+      setContent,
+      setEditingId,
+      setModalOpen,
+      setMsgtype,
+      setScheduledAtDate,
+      setSelectedGroupId,
+      setWebhookUrl,
+    ],
   );
 
   const openEdit = useCallback(
@@ -166,10 +190,19 @@ export function useScheduledMessages(groups: WebhookGroup[] = []) {
         gid === null && groups.length === 0 && m.webhookUrl.trim() !== "";
       setModalOpen(true);
     },
-    [groups],
+    [
+      groups,
+      setContent,
+      setEditingId,
+      setModalOpen,
+      setMsgtype,
+      setScheduledAtDate,
+      setSelectedGroupId,
+      setWebhookUrl,
+    ],
   );
 
-  const closeModal = useCallback(() => setModalOpen(false), []);
+  const closeModal = useCallback(() => setModalOpen(false), [setModalOpen]);
 
   const saveMessage = useCallback(async () => {
     const scheduled_at = scheduledAtDate.getTime();
@@ -223,7 +256,7 @@ export function useScheduledMessages(groups: WebhookGroup[] = []) {
     } catch (e) {
       toast.error(String(e));
     }
-  }, [closeModal, currentDate, editingId, loadRange]);
+  }, [closeModal, currentDate, editingId, loadRange, setDeleteOpen]);
 
   const sendTestFromForm = useCallback(async () => {
     try {
@@ -252,8 +285,8 @@ export function useScheduledMessages(groups: WebhookGroup[] = []) {
     [currentDate, loadRange],
   );
 
-  const onNavigate = useCallback((d: Date) => setCurrentDate(d), []);
-  const onViewChange = useCallback((v: View) => setCurrentView(v), []);
+  const onNavigate = useCallback((d: Date) => setCurrentDate(d), [setCurrentDate]);
+  const onViewChange = useCallback((v: View) => setCurrentView(v), [setCurrentView]);
 
   const onSelectSlot = useCallback(
     (slotStart: Date) => {

@@ -7,7 +7,7 @@ import { DeleteMessageDialog } from "@/components/delete-message-dialog";
 
 export default function App() {
   const wg = useWebhookGroups();
-  const vm = useScheduledMessages(wg.groups);
+  const vm = useScheduledMessages();
 
   return (
     <div className="min-h-screen bg-background">
