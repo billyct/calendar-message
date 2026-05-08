@@ -25,6 +25,17 @@ pub struct WebhookGroupDto {
     pub updated_at: i64,
 }
 
+#[derive(Debug, Serialize, Deserialize, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct MessageTemplateDto {
+    pub id: String,
+    pub name: String,
+    pub msgtype: String,
+    pub content: String,
+    pub created_at: i64,
+    pub updated_at: i64,
+}
+
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ScheduledMessageDto {
@@ -74,6 +85,23 @@ struct UpdateGroupInput {
     name: String,
     webhook_url: String,
     color: String,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct CreateTemplateInput {
+    name: String,
+    msgtype: String,
+    content: String,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct UpdateTemplateInput {
+    id: String,
+    name: String,
+    msgtype: String,
+    content: String,
 }
 
 fn normalize_msgtype(raw: &str) -> Result<&'static str, String> {
@@ -263,6 +291,63 @@ fn list_groups(state: State<AppDb>) -> Result<Vec<WebhookGroupDto>, String> {
     db::list_groups(&conn).map_err(|e| e.to_string())
 }
 
+#[tauri::command]
+fn create_template(
+    state: State<AppDb>,
+    input: CreateTemplateInput,
+) -> Result<MessageTemplateDto, String> {
+    let name = input.name.trim();
+    if name.is_empty() {
+        return Err("模板名称不能为空".into());
+    }
+    let msgtype = normalize_msgtype(&input.msgtype)?;
+    let content = input.content.trim();
+    if content.is_empty() {
+        return Err("模板内容不能为空".into());
+    }
+    let conn = Connection::open(&state.path).map_err(|e| e.to_string())?;
+    db::create_template(&conn, name, msgtype, content).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+fn update_template(
+    state: State<AppDb>,
+    input: UpdateTemplateInput,
+) -> Result<MessageTemplateDto, String> {
+    let name = input.name.trim();
+    if name.is_empty() {
+        return Err("模板名称不能为空".into());
+    }
+    let msgtype = normalize_msgtype(&input.msgtype)?;
+    let content = input.content.trim();
+    if content.is_empty() {
+        return Err("模板内容不能为空".into());
+    }
+    let conn = Connection::open(&state.path).map_err(|e| e.to_string())?;
+    match db::update_template(&conn, &input.id, name, msgtype, content)
+        .map_err(|e| e.to_string())?
+    {
+        Some(row) => Ok(row),
+        None => Err("模板不存在".into()),
+    }
+}
+
+#[tauri::command]
+fn delete_template(state: State<AppDb>, id: String) -> Result<(), String> {
+    let conn = Connection::open(&state.path).map_err(|e| e.to_string())?;
+    let ok = db::delete_template(&conn, &id).map_err(|e| e.to_string())?;
+    if !ok {
+        return Err("模板不存在".into());
+    }
+    Ok(())
+}
+
+#[tauri::command]
+fn list_templates(state: State<AppDb>) -> Result<Vec<MessageTemplateDto>, String> {
+    let conn = Connection::open(&state.path).map_err(|e| e.to_string())?;
+    db::list_templates(&conn).map_err(|e| e.to_string())
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
@@ -298,6 +383,10 @@ pub fn run() {
             update_group,
             delete_group,
             list_groups,
+            create_template,
+            update_template,
+            delete_template,
+            list_templates,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

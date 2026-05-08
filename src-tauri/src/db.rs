@@ -1,7 +1,7 @@
 use chrono::Utc;
 use rusqlite::{params, Connection, OptionalExtension, TransactionBehavior};
 
-use crate::{ScheduledMessageDto, WebhookGroupDto};
+use crate::{MessageTemplateDto, ScheduledMessageDto, WebhookGroupDto};
 
 pub fn init_schema(conn: &Connection) -> rusqlite::Result<()> {
     conn.execute_batch(
@@ -26,6 +26,14 @@ pub fn init_schema(conn: &Connection) -> rusqlite::Result<()> {
           name TEXT NOT NULL,
           webhook_url TEXT NOT NULL,
           color TEXT NOT NULL,
+          created_at INTEGER NOT NULL,
+          updated_at INTEGER NOT NULL
+        );
+        CREATE TABLE IF NOT EXISTS message_templates (
+          id TEXT PRIMARY KEY,
+          name TEXT NOT NULL,
+          msgtype TEXT NOT NULL,
+          content TEXT NOT NULL,
           created_at INTEGER NOT NULL,
           updated_at INTEGER NOT NULL
         );
@@ -285,4 +293,123 @@ pub fn list_groups(conn: &Connection) -> rusqlite::Result<Vec<WebhookGroupDto>> 
         out.push(r?);
     }
     Ok(out)
+}
+
+fn template_row_to_dto(row: &rusqlite::Row<'_>) -> rusqlite::Result<MessageTemplateDto> {
+    Ok(MessageTemplateDto {
+        id: row.get(0)?,
+        name: row.get(1)?,
+        msgtype: row.get(2)?,
+        content: row.get(3)?,
+        created_at: row.get(4)?,
+        updated_at: row.get(5)?,
+    })
+}
+
+pub fn create_template(
+    conn: &Connection,
+    name: &str,
+    msgtype: &str,
+    content: &str,
+) -> rusqlite::Result<MessageTemplateDto> {
+    let id = uuid::Uuid::new_v4().to_string();
+    let now = Utc::now().timestamp_millis();
+    conn.execute(
+        r#"INSERT INTO message_templates (id, name, msgtype, content, created_at, updated_at)
+           VALUES (?1, ?2, ?3, ?4, ?5, ?5)"#,
+        params![id, name, msgtype, content, now],
+    )?;
+    get_template(conn, &id)?.ok_or(rusqlite::Error::QueryReturnedNoRows)
+}
+
+pub fn update_template(
+    conn: &Connection,
+    id: &str,
+    name: &str,
+    msgtype: &str,
+    content: &str,
+) -> rusqlite::Result<Option<MessageTemplateDto>> {
+    let now = Utc::now().timestamp_millis();
+    let n = conn.execute(
+        r#"UPDATE message_templates SET name = ?1, msgtype = ?2, content = ?3, updated_at = ?4
+           WHERE id = ?5"#,
+        params![name, msgtype, content, now, id],
+    )?;
+    if n == 0 {
+        return Ok(None);
+    }
+    get_template(conn, id)
+}
+
+pub fn delete_template(conn: &Connection, id: &str) -> rusqlite::Result<bool> {
+    let n = conn.execute("DELETE FROM message_templates WHERE id = ?1", params![id])?;
+    Ok(n > 0)
+}
+
+pub fn get_template(conn: &Connection, id: &str) -> rusqlite::Result<Option<MessageTemplateDto>> {
+    let mut stmt = conn.prepare(
+        "SELECT id, name, msgtype, content, created_at, updated_at FROM message_templates WHERE id = ?1",
+    )?;
+    stmt.query_row(params![id], template_row_to_dto).optional()
+}
+
+pub fn list_templates(conn: &Connection) -> rusqlite::Result<Vec<MessageTemplateDto>> {
+    let mut stmt = conn.prepare(
+        "SELECT id, name, msgtype, content, created_at, updated_at FROM message_templates ORDER BY created_at ASC",
+    )?;
+    let mapped = stmt.query_map([], template_row_to_dto)?;
+    let mut out = Vec::new();
+    for r in mapped {
+        out.push(r?);
+    }
+    Ok(out)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn memory_conn() -> Connection {
+        let conn = Connection::open_in_memory().expect("open in-memory database");
+        init_schema(&conn).expect("initialize schema");
+        conn
+    }
+
+    #[test]
+    fn template_crud_round_trip() {
+        let conn = memory_conn();
+
+        let created = create_template(&conn, "早报", "markdown", "# 今日早报")
+            .expect("create template");
+        assert_eq!(created.name, "早报");
+        assert_eq!(created.msgtype, "markdown");
+        assert_eq!(created.content, "# 今日早报");
+
+        let rows = list_templates(&conn).expect("list templates");
+        assert_eq!(rows.len(), 1);
+        assert_eq!(rows[0].id, created.id);
+
+        let updated = update_template(&conn, &created.id, "晚报", "text", "今日总结")
+            .expect("update template")
+            .expect("template exists");
+        assert_eq!(updated.name, "晚报");
+        assert_eq!(updated.msgtype, "text");
+        assert_eq!(updated.content, "今日总结");
+        assert!(updated.updated_at >= created.updated_at);
+
+        assert!(delete_template(&conn, &created.id).expect("delete template"));
+        assert!(list_templates(&conn).expect("list templates").is_empty());
+    }
+
+    #[test]
+    fn update_and_delete_missing_template_report_absence() {
+        let conn = memory_conn();
+
+        let updated = update_template(&conn, "missing", "x", "text", "body")
+            .expect("update missing template");
+        assert!(updated.is_none());
+
+        let deleted = delete_template(&conn, "missing").expect("delete missing template");
+        assert!(!deleted);
+    }
 }
