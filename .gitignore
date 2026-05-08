@@ -28,3 +28,5 @@ dist-ssr
 src-tauri/icons/
 public/favicon.ico
 assets/icon-source/app-icon.png
+
+.worktrees/
