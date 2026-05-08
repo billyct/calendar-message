@@ -1,5 +1,6 @@
 import { useScheduledMessages } from "@/hooks/use-scheduled-messages";
 import { useWebhookGroups } from "@/hooks/use-webhook-groups";
+import { useMessageTemplates } from "@/hooks/use-message-templates";
 import { AppHeader } from "@/components/app-header";
 import { MessageCalendar } from "@/components/message-calendar";
 import { MessageFormDialog } from "@/components/message-form-dialog";
@@ -8,6 +9,7 @@ import { DeleteMessageDialog } from "@/components/delete-message-dialog";
 export default function App() {
   const wg = useWebhookGroups();
   const vm = useScheduledMessages();
+  const mt = useMessageTemplates();
 
   return (
     <div className="min-h-screen bg-background">
@@ -17,6 +19,10 @@ export default function App() {
         onCreateGroup={wg.createGroup}
         onUpdateGroup={wg.updateGroup}
         onDeleteGroup={wg.deleteGroup}
+        templates={mt.templates}
+        onCreateTemplate={mt.createTemplate}
+        onUpdateTemplate={mt.updateTemplate}
+        onDeleteTemplate={mt.deleteTemplate}
       />
 
       <MessageCalendar
