@@ -47,7 +47,7 @@ describe("useMessageTemplates", () => {
       },
     ];
 
-    mockInvoke({ listTemplates: () => mockTemplates });
+    mockInvoke({ listTemplates: async () => mockTemplates });
 
     const { result } = renderHook(() => useMessageTemplates(), { wrapper });
 
@@ -81,7 +81,7 @@ describe("useMessageTemplates", () => {
 
     let callCount = 0;
     mockInvoke({
-      listTemplates: () => {
+      listTemplates: async () => {
         callCount++;
         return callCount === 1 ? initialTemplates : [...initialTemplates, newTemplate];
       },
@@ -127,7 +127,7 @@ describe("useMessageTemplates", () => {
 
     let callCount = 0;
     mockInvoke({
-      listTemplates: () => {
+      listTemplates: async () => {
         callCount++;
         return callCount === 1 ? initialTemplates : updatedTemplates;
       },
@@ -170,7 +170,7 @@ describe("useMessageTemplates", () => {
 
     let callCount = 0;
     mockInvoke({
-      listTemplates: () => {
+      listTemplates: async () => {
         callCount++;
         return callCount === 1 ? initialTemplates : [initialTemplates[1]];
       },
