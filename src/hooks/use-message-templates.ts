@@ -14,7 +14,6 @@ export function useMessageTemplates() {
       const result = await invoke<MessageTemplate[]>("list_templates");
       setTemplates(result);
     } catch (e) {
-      console.error("Failed to load templates:", e);
       toast.error(String(e));
     }
   }, [setTemplates]);
