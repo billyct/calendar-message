@@ -192,7 +192,7 @@ export function AppHeader({
                             type="button"
                             className="rounded p-1 hover:bg-accent"
                             onClick={() => openEdit(g)}
-                            aria-label="编辑"
+                            aria-label={`编辑 ${g.name}`}
                           >
                           <Pencil className="size-3.5" />
                         </button>
@@ -200,7 +200,7 @@ export function AppHeader({
                           type="button"
                           className="rounded p-1 text-destructive hover:bg-destructive/10"
                           onClick={() => setDeletingGroup(g)}
-                          aria-label="删除"
+                          aria-label={`删除 ${g.name}`}
                         >
                           <Trash2 className="size-3.5" />
                         </button>
@@ -259,7 +259,7 @@ export function AppHeader({
                             type="button"
                             className="rounded p-1 hover:bg-accent"
                             onClick={() => openTemplateEdit(t)}
-                            aria-label="编辑"
+                            aria-label={`编辑 ${t.name}`}
                           >
                             <Pencil className="size-3.5" />
                           </button>
@@ -267,7 +267,7 @@ export function AppHeader({
                             type="button"
                             className="rounded p-1 text-destructive hover:bg-destructive/10"
                             onClick={() => setDeletingTemplate(t)}
-                            aria-label="删除"
+                            aria-label={`删除 ${t.name}`}
                           >
                             <Trash2 className="size-3.5" />
                           </button>
