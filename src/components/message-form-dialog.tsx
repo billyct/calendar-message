@@ -104,9 +104,7 @@ export function MessageFormDialog({
       textarea &&
       textarea.value === content &&
       typeof textarea.selectionStart === "number" &&
-      typeof textarea.selectionEnd === "number" &&
-      (textarea.selectionStart > 0 || textarea.selectionStart !== textarea.selectionEnd) &&
-      textarea.selectionEnd < content.length
+      typeof textarea.selectionEnd === "number"
     ) {
       const start = textarea.selectionStart;
       const end = textarea.selectionEnd;
