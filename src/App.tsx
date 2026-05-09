@@ -59,6 +59,7 @@ export default function App() {
         onSendSavedNow={() =>
           vm.editingId ? vm.sendSavedNow(vm.editingId) : undefined
         }
+        templates={mt.templates}
       />
 
       <DeleteMessageDialog
