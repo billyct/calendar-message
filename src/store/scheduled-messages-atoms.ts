@@ -69,3 +69,15 @@ export const messagesRangeAtom = atom<DateRange>({
 });
 
 export const messageListAtom = atom<ScheduledMessage[]>([]);
+
+export const todayMessagesAtom = atom((get) => {
+  const all = get(messagesAtom);
+  const today = new Date();
+  const y = today.getFullYear(),
+    m = today.getMonth(),
+    d = today.getDate();
+  return all.filter((msg) => {
+    const t = new Date(msg.scheduledAt);
+    return t.getFullYear() === y && t.getMonth() === m && t.getDate() === d;
+  });
+});
