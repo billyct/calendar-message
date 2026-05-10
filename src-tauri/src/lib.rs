@@ -292,6 +292,15 @@ fn list_groups(state: State<AppDb>) -> Result<Vec<WebhookGroupDto>, String> {
 }
 
 #[tauri::command]
+fn get_webhook_group(
+    state: State<AppDb>,
+    id: String,
+) -> Result<Option<WebhookGroupDto>, String> {
+    let conn = Connection::open(&state.path).map_err(|e| e.to_string())?;
+    db::get_group(&conn, &id).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
 fn create_template(
     state: State<AppDb>,
     input: CreateTemplateInput,
@@ -348,6 +357,15 @@ fn list_templates(state: State<AppDb>) -> Result<Vec<MessageTemplateDto>, String
     db::list_templates(&conn).map_err(|e| e.to_string())
 }
 
+#[tauri::command]
+fn get_message_template(
+    state: State<AppDb>,
+    id: String,
+) -> Result<Option<MessageTemplateDto>, String> {
+    let conn = Connection::open(&state.path).map_err(|e| e.to_string())?;
+    db::get_template(&conn, &id).map_err(|e| e.to_string())
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
@@ -383,10 +401,12 @@ pub fn run() {
             update_group,
             delete_group,
             list_groups,
+            get_webhook_group,
             create_template,
             update_template,
             delete_template,
             list_templates,
+            get_message_template,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
