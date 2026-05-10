@@ -56,3 +56,16 @@ export const eventsAtom = atom((get): CalendarEvent[] => {
     };
   });
 });
+
+const offsetDays = (d: number) => {
+  const r = new Date();
+  r.setDate(r.getDate() + d);
+  return r;
+};
+
+export const messagesRangeAtom = atom<DateRange>({
+  start: offsetDays(-30),
+  end: offsetDays(30),
+});
+
+export const messageListAtom = atom<ScheduledMessage[]>([]);
