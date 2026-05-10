@@ -26,7 +26,7 @@ export function TodayMessagesPanel() {
               key={m.id}
               type="button"
               onClick={() => navigate(`/messages/${m.id}`)}
-              className="flex w-full items-center gap-2 rounded-md border border-transparent px-2 py-2 text-left text-sm hover:bg-muted"
+              className="flex w-full items-center gap-2 rounded-md border border-transparent px-2 py-2 text-left text-sm transition-colors outline-none hover:bg-muted focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50"
             >
               <span className="flex-1 truncate">{m.content || "（空）"}</span>
               <StatusBadge status={m.status} />
