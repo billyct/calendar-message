@@ -81,3 +81,14 @@ export const todayMessagesAtom = atom((get) => {
     return t.getFullYear() === y && t.getMonth() === m && t.getDate() === d;
   });
 });
+
+export const monthStatsAtom = atom((get) => {
+  const all = get(messagesAtom);
+  const counts = { total: all.length, pending: 0, sent: 0, failed: 0 };
+  for (const m of all) {
+    if (m.status === "pending" || m.status === "processing") counts.pending++;
+    else if (m.status === "sent") counts.sent++;
+    else if (m.status === "failed") counts.failed++;
+  }
+  return counts;
+});

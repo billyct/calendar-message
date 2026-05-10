@@ -13,6 +13,7 @@ import {
   SidebarMenuItem,
   SidebarSeparator,
 } from "@/components/ui/sidebar";
+import { StatsOverview } from "@/components/stats-overview";
 
 const NAV = [
   { to: "/calendar", label: "日历视图", icon: Calendar },
@@ -56,7 +57,7 @@ export function AppSidebar() {
         <SidebarGroup>
           <SidebarGroupLabel>本月概览</SidebarGroupLabel>
           <SidebarGroupContent>
-            <div className="px-2 py-2 text-xs text-muted-foreground">（统计概览将在后续任务中加入）</div>
+            <StatsOverview />
           </SidebarGroupContent>
         </SidebarGroup>
       </SidebarContent>
