@@ -16,3 +16,7 @@ Object.defineProperty(window, "matchMedia", {
     dispatchEvent: vi.fn(),
   })),
 });
+
+if (!document.elementFromPoint) {
+  document.elementFromPoint = () => null;
+}

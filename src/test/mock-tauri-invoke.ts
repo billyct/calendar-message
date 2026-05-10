@@ -3,10 +3,15 @@ import { invoke } from "@tauri-apps/api/core";
 
 import type { ScheduledMessage } from "@/types/scheduled-message";
 import type { MessageTemplate } from "@/types/message-template";
+import type { WebhookGroup } from "@/types/webhook-group";
 
 export type InvokeRouterState = {
   listMessages: () => Promise<ScheduledMessage[]>;
   listTemplates: () => Promise<MessageTemplate[]>;
+  listGroups: () => Promise<WebhookGroup[]>;
+  getMessage: (id: string) => Promise<ScheduledMessage | null>;
+  getGroup: (id: string) => Promise<WebhookGroup | null>;
+  getTemplate: (id: string) => Promise<MessageTemplate | null>;
   mutateResult: unknown;
   /** Per-command throw overrides for mutation / preview commands */
   throwOn: Partial<Record<string, Error>>;
@@ -16,22 +21,31 @@ export function createInvokeRouter() {
   const state: InvokeRouterState = {
     listMessages: async () => [],
     listTemplates: async () => [],
+    listGroups: async () => [],
+    getMessage: async () => null,
+    getGroup: async () => null,
+    getTemplate: async () => null,
     mutateResult: undefined,
     throwOn: {},
   };
 
-  const invokeImpl = vi.fn(async (cmd: string, _payload?: unknown) => {
+  const invokeImpl = vi.fn(async (cmd: string, payload?: unknown) => {
+    const err = state.throwOn[cmd];
+    if (err) throw err;
+    const id = (payload as { id?: string } | undefined)?.id ?? "";
     switch (cmd) {
-      case "list_messages": {
-        const err = state.throwOn[cmd];
-        if (err) throw err;
+      case "list_messages":
         return state.listMessages();
-      }
-      case "list_templates": {
-        const err = state.throwOn[cmd];
-        if (err) throw err;
+      case "list_templates":
         return state.listTemplates();
-      }
+      case "list_groups":
+        return state.listGroups();
+      case "get_message":
+        return state.getMessage(id);
+      case "get_webhook_group":
+        return state.getGroup(id);
+      case "get_message_template":
+        return state.getTemplate(id);
       case "create_message":
       case "update_message":
       case "delete_message":
@@ -39,11 +53,11 @@ export function createInvokeRouter() {
       case "send_saved_now":
       case "create_template":
       case "update_template":
-      case "delete_template": {
-        const err = state.throwOn[cmd];
-        if (err) throw err;
+      case "delete_template":
+      case "create_group":
+      case "update_group":
+      case "delete_group":
         return state.mutateResult;
-      }
       default:
         throw new Error(`Unexpected invoke command: ${cmd}`);
     }

@@ -412,4 +412,46 @@ mod tests {
         let deleted = delete_template(&conn, "missing").expect("delete missing template");
         assert!(!deleted);
     }
+
+    #[test]
+    fn get_group_returns_none_for_missing_id() {
+        let conn = memory_conn();
+        let result = get_group(&conn, "nonexistent").expect("get missing group");
+        assert!(result.is_none());
+    }
+
+    #[test]
+    fn get_group_returns_record_when_present() {
+        let conn = memory_conn();
+        let created = create_group(&conn, "Test Group", "https://example.com/webhook", "#ffffff")
+            .expect("create group");
+        let row = get_group(&conn, &created.id)
+            .expect("get group")
+            .expect("should exist");
+        assert_eq!(row.name, "Test Group");
+        assert_eq!(row.webhook_url, "https://example.com/webhook");
+        assert_eq!(row.color, "#ffffff");
+        assert_eq!(row.id, created.id);
+    }
+
+    #[test]
+    fn get_template_returns_none_for_missing_id() {
+        let conn = memory_conn();
+        let result = get_template(&conn, "nonexistent").expect("get missing template");
+        assert!(result.is_none());
+    }
+
+    #[test]
+    fn get_template_returns_record_when_present() {
+        let conn = memory_conn();
+        let created = create_template(&conn, "Test Template", "text", "Hello World")
+            .expect("create template");
+        let row = get_template(&conn, &created.id)
+            .expect("get template")
+            .expect("should exist");
+        assert_eq!(row.name, "Test Template");
+        assert_eq!(row.msgtype, "text");
+        assert_eq!(row.content, "Hello World");
+        assert_eq!(row.id, created.id);
+    }
 }

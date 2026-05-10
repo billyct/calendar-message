@@ -1,34 +1,21 @@
 import { atom } from "jotai";
-import type { View } from "react-big-calendar";
 
 import { statusLabel } from "@/lib/message-status";
 import type { CalendarEvent, ScheduledMessage } from "@/types/scheduled-message";
 
+export type DateRange = { start: Date; end: Date };
+
+const monthRange = (anchor: Date): DateRange => {
+  const start = new Date(anchor.getFullYear(), anchor.getMonth(), 1);
+  const end = new Date(anchor.getFullYear(), anchor.getMonth() + 1, 2);
+  return { start, end };
+};
+
+export const currentRangeAtom = atom<DateRange>(monthRange(new Date()));
+
 export const messagesAtom = atom<ScheduledMessage[]>([]);
 
 export const loadingAtom = atom(false);
-
-export const currentDateAtom = atom(new Date());
-
-export const currentViewAtom = atom<View>("month");
-
-export const modalOpenAtom = atom(false);
-
-export const deleteOpenAtom = atom(false);
-
-export const editingIdAtom = atom<string | null>(null);
-
-export const webhookUrlAtom = atom("");
-
-export const msgtypeAtom = atom<"text" | "markdown">("text");
-
-export const contentAtom = atom("");
-
-export const scheduledAtDateAtom = atom(new Date());
-
-export const scheduleDateOpenAtom = atom(false);
-
-export const selectedGroupIdAtom = atom<string | null>(null);
 
 export const eventsAtom = atom((get): CalendarEvent[] => {
   const messages = get(messagesAtom);
@@ -45,4 +32,40 @@ export const eventsAtom = atom((get): CalendarEvent[] => {
       resource: m,
     };
   });
+});
+
+const offsetDays = (d: number) => {
+  const r = new Date();
+  r.setDate(r.getDate() + d);
+  return r;
+};
+
+export const messagesRangeAtom = atom<DateRange>({
+  start: offsetDays(-30),
+  end: offsetDays(30),
+});
+
+export const messageListAtom = atom<ScheduledMessage[]>([]);
+
+export const todayMessagesAtom = atom((get) => {
+  const all = get(messagesAtom);
+  const today = new Date();
+  const y = today.getFullYear(),
+    m = today.getMonth(),
+    d = today.getDate();
+  return all.filter((msg) => {
+    const t = new Date(msg.scheduledAt);
+    return t.getFullYear() === y && t.getMonth() === m && t.getDate() === d;
+  });
+});
+
+export const monthStatsAtom = atom((get) => {
+  const all = get(messagesAtom);
+  const counts = { total: all.length, pending: 0, sent: 0, failed: 0 };
+  for (const m of all) {
+    if (m.status === "pending" || m.status === "processing") counts.pending++;
+    else if (m.status === "sent") counts.sent++;
+    else if (m.status === "failed") counts.failed++;
+  }
+  return counts;
 });

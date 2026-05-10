@@ -1,21 +1,16 @@
 import React from "react";
 import ReactDOM from "react-dom/client";
-import { ThemeProvider } from "@/components/theme-provider";
+import { RouterProvider } from "react-router-dom";
 import { Toaster } from "@/components/ui/sonner";
-
-import App from "./App";
+import { ThemeProvider } from "@/components/theme-provider";
+import { router } from "@/router";
 import "./index.css";
 
-ReactDOM.createRoot(document.getElementById("root") as HTMLElement).render(
+ReactDOM.createRoot(document.getElementById("root")!).render(
   <React.StrictMode>
-    <ThemeProvider
-      attribute="class"
-      defaultTheme="dark"
-      enableSystem
-      disableTransitionOnChange
-    >
-      <App />
-      <Toaster richColors closeButton position="bottom-center" />
+    <ThemeProvider attribute="class" defaultTheme="dark" enableSystem>
+      <RouterProvider router={router} />
+      <Toaster />
     </ThemeProvider>
-  </React.StrictMode>,
+  </React.StrictMode>
 );
