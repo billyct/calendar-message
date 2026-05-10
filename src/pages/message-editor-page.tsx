@@ -17,7 +17,7 @@ import { PageHeader } from "@/components/page-header";
 import { MessageEditorForm } from "@/components/message-editor-form";
 import { useMessageEditor } from "@/hooks/use-message-editor";
 import { useWebhookGroupsData } from "@/hooks/use-webhook-groups-data";
-import { useMessageTemplates } from "@/hooks/use-message-templates";
+import { useMessageTemplatesData } from "@/hooks/use-message-templates-data";
 
 export function MessageEditorPage() {
   const { id } = useParams();
@@ -25,7 +25,7 @@ export function MessageEditorPage() {
   const navigate = useNavigate();
   const editor = useMessageEditor(id);
   const { groups } = useWebhookGroupsData();
-  const { templates } = useMessageTemplates();
+  const { templates } = useMessageTemplatesData();
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
 
