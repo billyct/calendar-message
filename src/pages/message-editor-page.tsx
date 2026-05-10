@@ -16,7 +16,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { PageHeader } from "@/components/page-header";
 import { MessageEditorForm } from "@/components/message-editor-form";
 import { useMessageEditor } from "@/hooks/use-message-editor";
-import { useWebhookGroups } from "@/hooks/use-webhook-groups";
+import { useWebhookGroupsData } from "@/hooks/use-webhook-groups-data";
 import { useMessageTemplates } from "@/hooks/use-message-templates";
 
 export function MessageEditorPage() {
@@ -24,7 +24,7 @@ export function MessageEditorPage() {
   const [search] = useSearchParams();
   const navigate = useNavigate();
   const editor = useMessageEditor(id);
-  const { groups } = useWebhookGroups();
+  const { groups } = useWebhookGroupsData();
   const { templates } = useMessageTemplates();
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
