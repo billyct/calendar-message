@@ -11,7 +11,7 @@ import type { CalendarEvent } from "@/types/scheduled-message";
 
 function monthRange(anchor: Date) {
   const start = new Date(anchor.getFullYear(), anchor.getMonth(), 1);
-  const end = new Date(anchor.getFullYear(), anchor.getMonth() + 1, 1);
+  const end = new Date(anchor.getFullYear(), anchor.getMonth() + 1, 2);
   return { start, end };
 }
 

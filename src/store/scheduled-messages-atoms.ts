@@ -8,7 +8,7 @@ export type DateRange = { start: Date; end: Date };
 
 const monthRange = (anchor: Date): DateRange => {
   const start = new Date(anchor.getFullYear(), anchor.getMonth(), 1);
-  const end = new Date(anchor.getFullYear(), anchor.getMonth() + 1, 1);
+  const end = new Date(anchor.getFullYear(), anchor.getMonth() + 1, 2);
   return { start, end };
 };
 
