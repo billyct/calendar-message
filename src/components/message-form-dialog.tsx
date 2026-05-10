@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   Dialog,
   DialogContent,
@@ -19,6 +19,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { ScheduleDateTimePicker } from "@/components/schedule-datetime-picker";
 import type { WebhookGroup } from "@/types/webhook-group";
+import type { MessageTemplate } from "@/types/message-template";
 
 type MessageFormDialogProps = {
   open: boolean;
@@ -41,6 +42,7 @@ type MessageFormDialogProps = {
   onDeleteClick: () => void;
   onSendTest: () => void | Promise<void>;
   onSendSavedNow: () => void | Promise<void>;
+  templates: MessageTemplate[];
 };
 
 export function MessageFormDialog({
@@ -64,7 +66,11 @@ export function MessageFormDialog({
   onDeleteClick,
   onSendTest,
   onSendSavedNow,
+  templates,
 }: MessageFormDialogProps) {
+  const contentRef = useRef<HTMLTextAreaElement>(null);
+  const [selectedTemplate, setSelectedTemplate] = useState<string>("");
+
   useEffect(() => {
     if (selectedGroupId === null) return;
     if (!groups.some((g) => g.id === selectedGroupId)) {
@@ -82,6 +88,40 @@ export function MessageFormDialog({
       onGroupSelect(group.id);
       onWebhookUrlChange(group.webhookUrl);
     }
+  };
+
+  const handleTemplateSelect = (templateId: string | null) => {
+    if (!templateId || templateId === "__placeholder__") {
+      return;
+    }
+    const template = templates.find((t) => t.id === templateId);
+    if (!template) return;
+
+    onMsgtypeChange(template.msgtype);
+
+    const textarea = contentRef.current;
+    if (
+      textarea &&
+      textarea.value === content &&
+      typeof textarea.selectionStart === "number" &&
+      typeof textarea.selectionEnd === "number"
+    ) {
+      const start = textarea.selectionStart;
+      const end = textarea.selectionEnd;
+      const before = content.slice(0, start);
+      const after = content.slice(end);
+      onContentChange(before + template.content + after);
+    } else {
+      if (content === "") {
+        onContentChange(template.content);
+      } else if (content.endsWith("\n")) {
+        onContentChange(content + template.content);
+      } else {
+        onContentChange(content + "\n" + template.content);
+      }
+    }
+
+    setSelectedTemplate("");
   };
 
   return (
@@ -171,9 +211,38 @@ export function MessageFormDialog({
             </Select>
           </div>
 
+          {templates.length > 0 && (
+            <div className="grid gap-2">
+              <Label htmlFor="template">插入模板</Label>
+              <Select
+                value={selectedTemplate}
+                onValueChange={handleTemplateSelect}
+              >
+                <SelectTrigger
+                  id="template"
+                  className="w-full min-w-0"
+                  aria-label="插入模板"
+                >
+                  <SelectValue placeholder="选择模板..." />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="__placeholder__" disabled>
+                    选择模板...
+                  </SelectItem>
+                  {templates.map((t) => (
+                    <SelectItem key={t.id} value={t.id}>
+                      {t.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
+
           <div className="grid gap-2">
             <Label htmlFor="content">内容</Label>
             <Textarea
+              ref={contentRef}
               id="content"
               rows={8}
               value={content}
