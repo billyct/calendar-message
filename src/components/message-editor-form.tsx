@@ -29,22 +29,22 @@ export function MessageEditorForm({
 }: MessageEditorFormProps) {
   const contentRef = useRef<HTMLTextAreaElement>(null);
   const [selectedTemplate, setSelectedTemplate] = useState<string>("");
-  const [selectedGroupId, setSelectedGroupId] = useState<string | null>(() => {
-    const group = groups.find((g) => g.webhookUrl === form.webhookUrl);
-    return group?.id ?? null;
-  });
+  const [selectedGroupId, setSelectedGroupId] = useState<string | null>(null);
   const [scheduleDateOpen, setScheduleDateOpen] = useState(false);
 
   useEffect(() => {
-    if (selectedGroupId === null) return;
-    if (!groups.some((g) => g.id === selectedGroupId)) {
+    if (!form.webhookUrl) {
       setSelectedGroupId(null);
+      return;
     }
-  }, [groups, selectedGroupId]);
+    const match = groups.find((g) => g.webhookUrl === form.webhookUrl);
+    setSelectedGroupId(match ? match.id : null);
+  }, [form.webhookUrl, groups]);
 
   const handleGroupSelect = (value: string | null) => {
     if (!value || value === "__none__") {
       setSelectedGroupId(null);
+      onChange("webhookUrl", "");
       return;
     }
     const group = groups.find((g) => g.id === value);

@@ -27,17 +27,15 @@ export function MessageEditorPage() {
   const { groups } = useWebhookGroups();
   const { templates } = useMessageTemplates();
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
 
-  // Pre-fill scheduledAt from ?at=ISO when creating new
+  const atParam = search.get("at");
   useEffect(() => {
     if (id) return;
-    const at = search.get("at");
-    if (at) {
-      const d = new Date(at);
-      if (!Number.isNaN(d.getTime())) editor.update("scheduledAt", d);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [id, search]);
+    if (!atParam) return;
+    const d = new Date(atParam);
+    if (!Number.isNaN(d.getTime())) editor.update("scheduledAt", d);
+  }, [id, atParam, editor.update]);
 
   if (id && editor.loading) {
     return <PageHeader title="加载中..." back={() => navigate(-1)} />;
@@ -77,12 +75,17 @@ export function MessageEditorPage() {
     }
   };
   const onConfirmDelete = async () => {
+    if (isDeleting) return;
+    setIsDeleting(true);
     try {
       await editor.remove();
       toast.success("已删除");
+      setConfirmDelete(false);
       navigate("/calendar");
     } catch (e) {
       toast.error(String(e));
+    } finally {
+      setIsDeleting(false);
     }
   };
 
@@ -138,7 +141,7 @@ export function MessageEditorPage() {
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>取消</AlertDialogCancel>
-            <AlertDialogAction onClick={onConfirmDelete}>删除</AlertDialogAction>
+            <AlertDialogAction disabled={isDeleting} onClick={onConfirmDelete}>删除</AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
