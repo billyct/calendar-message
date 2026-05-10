@@ -4,6 +4,16 @@ import type { View } from "react-big-calendar";
 import { statusLabel } from "@/lib/message-status";
 import type { CalendarEvent, ScheduledMessage } from "@/types/scheduled-message";
 
+export type DateRange = { start: Date; end: Date };
+
+const monthRange = (anchor: Date): DateRange => {
+  const start = new Date(anchor.getFullYear(), anchor.getMonth(), 1);
+  const end = new Date(anchor.getFullYear(), anchor.getMonth() + 1, 1);
+  return { start, end };
+};
+
+export const currentRangeAtom = atom<DateRange>(monthRange(new Date()));
+
 export const messagesAtom = atom<ScheduledMessage[]>([]);
 
 export const loadingAtom = atom(false);
