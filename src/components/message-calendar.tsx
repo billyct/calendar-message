@@ -28,9 +28,9 @@ export function MessageCalendar({
   onSelectEvent,
 }: MessageCalendarProps) {
   return (
-    <div className="relative px-4 pb-6 pt-3">
+    <div className="relative h-full">
       {loading ? (
-        <div className="pointer-events-none absolute inset-x-4 top-3 z-[2] flex justify-center text-sm text-muted-foreground">
+        <div className="pointer-events-none absolute inset-0 z-[2] flex justify-center text-sm text-muted-foreground">
           加载中…
         </div>
       ) : null}
@@ -44,7 +44,7 @@ export function MessageCalendar({
         onView={onViewChange}
         startAccessor="start"
         endAccessor="end"
-        style={{ height: "calc(100vh - 140px)", minHeight: 520 }}
+        style={{ height: "100%", minHeight: 520 }}
         selectable
         onSelectSlot={(slot: SlotInfo) => onSelectSlot(slot.start)}
         onSelectEvent={(ev: CalendarEvent) => onSelectEvent(ev)}
