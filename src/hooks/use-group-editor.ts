@@ -53,14 +53,16 @@ export function useGroupEditor(id?: string) {
   );
 
   const save = useCallback(async (): Promise<string> => {
+    const name = form.name.trim();
+    const webhookUrl = form.webhookUrl.trim();
     if (id) {
       await invoke("update_group", {
-        input: { id, name: form.name, webhookUrl: form.webhookUrl, color: form.color },
+        input: { id, name, webhookUrl, color: form.color },
       });
       return id;
     }
     const created = await invoke<WebhookGroup>("create_group", {
-      input: { name: form.name, webhookUrl: form.webhookUrl, color: form.color },
+      input: { name, webhookUrl, color: form.color },
     });
     return created.id;
   }, [form, id]);
